@@ -70,10 +70,11 @@ def markTarget(df):
     #print df[df[6].notnull() & df[2].notnull()]
     #df.loc( (df[6].notnull() & df[2].notnull()) ,11)= 1
     df[11][ df[6].notnull() & df[2].notnull() ] = 1
-    df = df[df[2].notnull()]
+    
     return df
     
-def addFreqOfMerchant(df,sup):
+def addFreqOfMerchant(df,sup_for_feature12, sup_for_feature13):
+    df = df[df[2].notnull()]
     #当前商户在训练集中出现的频率：当前商户次数/训练集长度
     """
     chunks = []
@@ -86,33 +87,44 @@ def addFreqOfMerchant(df,sup):
     #df_sup = pd.DataFrame( [pd.Series(df[1].value_counts().index),  df[1].value_counts() / df.shape[0] ] )
     #print df_sup
     #df = df.merge(df_sup, left_on=1, right_on=1)
-    merged = pd.merge( df, sup, left_on=1, right_index=True, how='left' )
-    print merged
+    merged = pd.merge( df, sup_for_feature12, left_on=1, right_index=True, how='left' )   
+    merged = pd.merge( merged, sup_for_feature13, left_on='1_x', right_index=True, how='left' )
+    
+    #print merged
     
     return merged
 
-df = readAsChunks("ccf_offline_stage1_train.csv", {0:int, 1:int,  3:str}).replace("null",np.nan)
+def processDate(df):
+    #领券日期 是当月的几号
+    df[14] = df[5].apply(lambda x:x.day)
+    return df
 
+df = readAsChunks("ccf_offline_stage1_train.csv", {0:int, 1:int,  3:str}).replace("null",np.nan)
+df[5] = pd.to_datetime(df[5])
+df[6] = pd.to_datetime(df[6])
 #为了计算当前商户在训练集中出现的频率：当前商户次数/训练集长度，在这里计算一下这个频率，存入sup(辅助)
 #放在函数外面，是为了训练集、测试集都可以用它来merge
 #sup = pd.DataFrame(df[1].value_counts()) #次数
 #sup = pd.DataFrame(df[1].value_counts()/df.shape[0]) #比例
-#sup = pd.DataFrame(df[1].value_counts()/df.shape[0] *100) #百分比例
-sup = pd.DataFrame(df[1].value_counts()/df.shape[0] *1000) #十分比例
+#sup = pd.DataFrame(df[1].value_counts()/df.shape[0] *10) #千分比例
+sup_for_feature12 = pd.DataFrame(df[1].value_counts()/df.shape[0] *100) #百分比例
+df = df[df[2].notnull()]
+sup_for_feature13 = pd.DataFrame(df[1].value_counts()/df.shape[0] *100) #百分比例
+#sup = pd.DataFrame(df[1].value_counts()/df.shape[0] *1000) #十分比例
 
-df = addFreqOfMerchant(df,sup)
-df.columns=[0,1,2,3,4,5,6,12]
+df = addFreqOfMerchant(df,sup_for_feature12, sup_for_feature13)
+df.columns=[0,1,2,3,4,5,6,12,13]
 df = splitDiscountRateCol(df)
+df = processDate(df)
+#打上分类标记
 df = markTarget(df)
 print df.columns
 
 #领券日期 和 消费日期 及 消费日期距离领券日期的差
-df[5] = pd.to_datetime(df[5])
-df[6] = pd.to_datetime(df[6])
 df[7] = df[6]-df[5]
 
 #usrid, merchantid, discountrate, man, jian, approxi_discountrate
-features = df[[0,1,3,4,8,9,10,12]].fillna(0).values
+features = df[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
 target_train = df[11]
 
 #哑编码 One-hot encode
@@ -144,33 +156,37 @@ lr.fit(X,y)
 #ar = AdaBoostRegressor()
 #ar.fit(X,y)
 
+model = lr
+
 
 def giveResultOnTestset():
     #读测试数据
     df_test = readAsChunks("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
-    df_test = addFreqOfMerchant(df_test, sup)
-    df_test.columns=[0,1,2,3,4,5,12]
+    df_res = df_test[[0,2,5]]    
+    df_test[5] = pd.to_datetime(df_test[5])
+    df_test = addFreqOfMerchant(df_test, sup_for_feature12, sup_for_feature13)
+    df_test.columns=[0,1,2,3,4,5,12,13]
     df_test = splitDiscountRateCol(df_test)
+    df_test = processDate(df_test)
     
     #features_test = df_test[[0,1,3,8,9,10]].fillna(0).values
     df_test = df_test[df_test[2].notnull()]
     
-    features_test = df_test[[0,1,3,4,8,9,10,12]].fillna(0).values
+    features_test = df_test[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
     features_test = enc.transform(features_test)
-    
-    #target_test = ab_whole.predict_proba(features_test)[:,1]
-    #target_test = rf_whole.predict_proba(features_test)[:,1]
-    target_test = lr.predict_proba(features_test)[:,1]
+
     #target_test = ar.predict(features_test)
+    target_test = model.predict_proba(features_test)[:,1]
     
-    df_res = df_test[[0,2,5]]
+    
     df_res[4] = pd.DataFrame(target_test)
-    df_res.to_csv("v0_11_lr_with1 3 12(percantage times 10)_unbalanced_dummied 0 1.csv",header=None,index=False)
+    df_res.to_csv("v0_14_lr_with1 3 12 13 14_unbalanced_dummied 0 1.csv",header=None,index=False)
     print df_res[4].value_counts()
     return df_res
 
 df_res = giveResultOnTestset()
+print 'A result generated.'
 #算auc
 #roc_auc_score(y_true, y_scores)
-print cross_val_score(lr,X,y,cv=5,scoring='roc_auc',n_jobs=1).mean()
+#print cross_val_score(model,X,y,cv=5,scoring='roc_auc',n_jobs=2).mean()
 #print cross_val_score(rf,X,y,cv=5,scoring='roc_auc',n_jobs=1).mean()
