@@ -16,6 +16,9 @@ from sklearn.ensemble import AdaBoostRegressor
 from sklearn.preprocessing import Imputer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.cross_validation import cross_val_score
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import MaxAbsScaler
 
 def readAsChunks(file_dir, types):
     chunks = []
@@ -88,8 +91,13 @@ def addFreqOfMerchant(df,sup_for_feature12, sup_for_feature13):
     #print df_sup
     #df = df.merge(df_sup, left_on=1, right_on=1)
     merged = pd.merge( df, sup_for_feature12, left_on=1, right_index=True, how='left' )   
-    merged = pd.merge( merged, sup_for_feature13, left_on='1_x', right_index=True, how='left' )
-    
+    print 'merge1 '
+    print merged.head()
+    print merged.columns
+    merged = pd.merge( merged, sup_for_feature13, left_on=u'1_x', right_index=True, how='left' )
+    print 'merge2 '
+    print merged.head()
+    print merged.columns
     #print merged
     
     return merged
@@ -123,27 +131,52 @@ print df.columns
 #领券日期 和 消费日期 及 消费日期距离领券日期的差
 df[7] = df[6]-df[5]
 
+#统一为一个函数，在这里面统一选择作为特征的列
+def chooseFeatures(df):
+    #先把列顺序排好
+    cols = list(df)
+    cols.sort()
+    df = df.ix[:,cols]
+    #然后选出这些列作为特征，具体含义见FeatureExplaination.txt
+    return df[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
+    
 #usrid, merchantid, discountrate, man, jian, approxi_discountrate
-features = df[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
+#features = df[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
+features = chooseFeatures(df)
 target_train = df[11]
 
+#下面把六月的拆出来，作为线下算平均auc的测试集
+print df.head()
+#train_nojun = df.drop(df[df[5].apply(lambda x:x.month)==6] , axis=1)
+train_nojun = df[df[5].apply(lambda x:x.month)!=6]
+#X_nojun = train_nojun[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
+X_nojun = chooseFeatures(train_nojun)
+y_nojun = train_nojun[11]
+
+test_jun = df[df[5].apply(lambda x:x.month)==6]
+y_jun = test_jun[11]
+#X_jun = test_jun[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
+X_jun = chooseFeatures(test_jun)
+
 #哑编码 One-hot encode
-enc = OneHotEncoder(categorical_features = np.array([0,1]) )
+enc = OneHotEncoder(categorical_features = np.array([0,1,-1]) )
 enc.fit(features)
 features = enc.transform(features)
+X_nojun = enc.transform(X_nojun)
+X_jun = enc.transform(X_jun)
+#归一化/标准化
+scaler = MaxAbsScaler()
+scaler.fit(features)
+features = scaler.transform(features)
+X_nojun = scaler.transform(X_nojun)
+X_jun = scaler.transform(X_jun)
 
 
 #训练模型
-
-#lr = LogisticRegression(n_jobs=-1)
-#lr.fit(features, target_train)
-print 'LR score on train set:'
-#print lr.score(features, target_train)
-
 X = features
 y = target_train
-X_train, X_test, y_train, y_test = train_test_split( X, y, test_size=0.1, random_state=1) 
-#rf = RandomForestClassifier(max_depth = 10, min_samples_split=2, n_estimators = 50, random_state = 1, n_jobs=-1) 
+
+#rf = RandomForestClassifier(max_depth = 10, min_samples_split=2, n_estimators = 100, random_state = 1, n_jobs=-1) 
 #rf.fit(X_train,y_train)
 
 
@@ -152,10 +185,11 @@ X_train, X_test, y_train, y_test = train_test_split( X, y, test_size=0.1, random
 #ab_whole = AdaBoostClassifier(n_estimators = 7)
 #ab_whole.fit(X,y)
 lr = LogisticRegression(n_jobs=-1)
-lr.fit(X,y)
+#lr.fit(X,y)
 #ar = AdaBoostRegressor()
 #ar.fit(X,y)
-
+#gbdt = GradientBoostingClassifier(n_estimators=100)
+#rfr = RandomForestRegressor(n_estimators=10,n_jobs=-1,verbose=2)
 model = lr
 
 
@@ -172,7 +206,8 @@ def giveResultOnTestset():
     #features_test = df_test[[0,1,3,8,9,10]].fillna(0).values
     df_test = df_test[df_test[2].notnull()]
     
-    features_test = df_test[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
+    #features_test = df_test[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
+    features_test = chooseFeatures(df_test)
     features_test = enc.transform(features_test)
 
     #target_test = ar.predict(features_test)
@@ -180,13 +215,36 @@ def giveResultOnTestset():
     
     
     df_res[4] = pd.DataFrame(target_test)
-    df_res.to_csv("v0_14_lr_with1 3 12 13 14_unbalanced_dummied 0 1.csv",header=None,index=False)
+    df_res.to_csv("v0_16_lr_with1 3 13_unbalanced_dummied 0 1.csv",header=None,index=False)
     print df_res[4].value_counts()
     return df_res
 
-df_res = giveResultOnTestset()
+#df_res = giveResultOnTestset()
 print 'A result generated.'
 #算auc
 #roc_auc_score(y_true, y_scores)
 #print cross_val_score(model,X,y,cv=5,scoring='roc_auc',n_jobs=2).mean()
 #print cross_val_score(rf,X,y,cv=5,scoring='roc_auc',n_jobs=1).mean()
+
+#算6月平均auc
+def calcAucJun():
+    #model_nojun = LogisticRegression(n_jobs=-1)
+    model_nojun = model
+    model_nojun.fit(X_nojun, y_nojun)
+    print 'train ok'
+    y_predict = model_nojun.predict_proba(X_jun)[:,1]
+    print 'predict ok'
+    y_predict = pd.DataFrame(y_predict)
+    y_predict.columns=[15]
+    test_jun_new = pd.concat([test_jun, y_predict], axis=1) #把预测出来的6月结果，合并到6月的完整表的最后一列，方便下面的groupby和计算
+    #print test_jun.head()
+    #return test_jun, y_predict
+    auc_list = []
+    for name, group in test_jun_new.groupby(test_jun_new[2]):
+        if group[11].unique().shape[0] != 1:
+            auc_list.append( roc_auc_score(group[11].values,group[15].values) )
+    return test_jun_new, auc_list
+
+test_jun_new, aucs = calcAucJun()
+s = pd.Series(aucs)
+print 'lr features scaled. Mean auc is : ',s.mean()
