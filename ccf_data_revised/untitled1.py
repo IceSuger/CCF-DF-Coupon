@@ -72,7 +72,7 @@ def markTarget(df):
     df[11] = 0
     #print df[df[6].notnull() & df[2].notnull()]
     #df.loc( (df[6].notnull() & df[2].notnull()) ,11)= 1
-    df[11][ df[6].notnull() & df[2].notnull() ] = 1
+    df[11][ (df[6].notnull() & df[2].notnull() )& (df[7].astype('timedelta64[D]').fillna(200).astype('int')<16)] = 1
     
     return df
     
@@ -124,12 +124,13 @@ df = addFreqOfMerchant(df,sup_for_feature12, sup_for_feature13)
 df.columns=[0,1,2,3,4,5,6,12,13]
 df = splitDiscountRateCol(df)
 df = processDate(df)
+#领券日期 和 消费日期 及 消费日期距离领券日期的差
+df[7] = df[6]-df[5]
 #打上分类标记
 df = markTarget(df)
 print df.columns
 
-#领券日期 和 消费日期 及 消费日期距离领券日期的差
-df[7] = df[6]-df[5]
+
 
 #统一为一个函数，在这里面统一选择作为特征的列
 def chooseFeatures(df):
@@ -209,13 +210,14 @@ def giveResultOnTestset():
     #features_test = df_test[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
     features_test = chooseFeatures(df_test)
     features_test = enc.transform(features_test)
+    features_test = scaler.transform(features_test)
 
     #target_test = ar.predict(features_test)
     target_test = model.predict_proba(features_test)[:,1]
     
     
     df_res[4] = pd.DataFrame(target_test)
-    df_res.to_csv("v0_16_lr_with1 3 13_unbalanced_dummied 0 1.csv",header=None,index=False)
+    df_res.to_csv("v0_17_lr_scaled.csv",header=None,index=False)
     print df_res[4].value_counts()
     return df_res
 
@@ -245,6 +247,7 @@ def calcAucJun():
             auc_list.append( roc_auc_score(group[11].values,group[15].values) )
     return test_jun_new, auc_list
 
+aucs = []
 test_jun_new, aucs = calcAucJun()
 s = pd.Series(aucs)
 print 'lr features scaled. Mean auc is : ',s.mean()
