@@ -35,3 +35,14 @@ print train_on.head()
 #nan_rate = (train_on.isnull().sum() / train_on.shape[0]) * 100
 
 #只考虑完全正的正例，即领券并消费了券的，正例只占offline训练集的全部的4.29%
+
+
+def fillinFeature4(df):
+    df[4] = df[4].astype(float)
+    print df[4].isnull().value_counts()
+    for name, group in df.groupby(df[0]):
+        group[4] = group[4].fillna(group[4].mean())
+    print df[4].isnull().value_counts()
+    return df
+    
+df = fillinFeature4(train_off)
