@@ -19,6 +19,8 @@ from sklearn.cross_validation import cross_val_score
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import MaxAbsScaler
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.feature_selection import SelectFromModel
 
 def readAsChunks(file_dir, types):
     chunks = []
@@ -70,10 +72,8 @@ def splitDiscountRateCol(df):
 def markTarget(df):
     #正例反例标记
     df[11] = 0
-    #print df[df[6].notnull() & df[2].notnull()]
-    #df.loc( (df[6].notnull() & df[2].notnull()) ,11)= 1
-    df[11][ (df[6].notnull() & df[2].notnull() )& (df[7].astype('timedelta64[D]').fillna(200).astype('int')<16)] = 1
-    
+    #df[11][ (df[6].notnull() & df[2].notnull() )& (df[7].astype('timedelta64[D]').fillna(200).astype('int')<16)] = 1
+    df[11][ df[6].notnull() & df[2].notnull()] =1
     return df
     
 def addFreqOfMerchant(df,sup_for_feature12, sup_for_feature13):
@@ -139,11 +139,11 @@ def chooseFeatures(df):
     cols.sort()
     df = df.ix[:,cols]
     #然后选出这些列作为特征，具体含义见FeatureExplaination.txt
-    return df[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
+    return df[[0,1]],df[[3,4,8,9,10,12,13,14]].fillna(0).values
     
 #usrid, merchantid, discountrate, man, jian, approxi_discountrate
 #features = df[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
-features = chooseFeatures(df)
+features01, features = chooseFeatures(df)
 target_train = df[11]
 
 #下面把六月的拆出来，作为线下算平均auc的测试集
@@ -151,26 +151,107 @@ print df.head()
 #train_nojun = df.drop(df[df[5].apply(lambda x:x.month)==6] , axis=1)
 train_nojun = df[df[5].apply(lambda x:x.month)!=6]
 #X_nojun = train_nojun[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
-X_nojun = chooseFeatures(train_nojun)
+X_nojun01, X_nojun = chooseFeatures(train_nojun)
 y_nojun = train_nojun[11]
 
 test_jun = df[df[5].apply(lambda x:x.month)==6]
 y_jun = test_jun[11]
 #X_jun = test_jun[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
-X_jun = chooseFeatures(test_jun)
+X_jun01, X_jun = chooseFeatures(test_jun)
 
-#哑编码 One-hot encode
-enc = OneHotEncoder(categorical_features = np.array([0,1,-1]) )
-enc.fit(features)
-features = enc.transform(features)
-X_nojun = enc.transform(X_nojun)
-X_jun = enc.transform(X_jun)
+
 #归一化/标准化
 scaler = MaxAbsScaler()
 scaler.fit(features)
 features = scaler.transform(features)
 X_nojun = scaler.transform(X_nojun)
 X_jun = scaler.transform(X_jun)
+print 'scale ok'
+#多项式数据变换
+pf = PolynomialFeatures()
+pf.fit(features)
+features = pf.transform(features)
+X_nojun = pf.transform(X_nojun)
+X_jun = pf.transform(X_jun)
+print 'trans to polynomial ok'
+print features.shape
+#特征选择 在哑编码之前
+rf = RandomForestClassifier(max_depth = 10, min_samples_split=2, n_estimators = 100, random_state = 1, n_jobs=-1)
+rf.fit(features, target_train)
+sfm = SelectFromModel(rf, threshold=0.01, prefit=True)
+#sfm.fit(features, target_train)
+features = sfm.transform(features)
+X_nojun = sfm.transform(X_nojun)
+X_jun = sfm.transform(X_jun)
+
+#把usrid，merchantid合并进features
+features = np.column_stack((features01,features))
+X_nojun = np.column_stack((X_nojun01,X_nojun))
+X_jun = np.column_stack((X_jun01,X_jun))
+
+#哑编码 One-hot encode
+enc = OneHotEncoder(categorical_features = np.array([0,1]) )
+enc.fit(features)
+features = enc.transform(features)
+X_nojun = enc.transform(X_nojun)
+X_jun = enc.transform(X_jun)
+
+
+"""
+
+"""
+
+#特征选择辅助函数
+class LR(LogisticRegression):
+    def __init__(self, threshold=0.01, dual=False, tol=1e-4, C=1.0,
+                 fit_intercept=True, intercept_scaling=1, class_weight=None,
+                 random_state=None, solver='liblinear', max_iter=100,
+                 multi_class='ovr', verbose=0, warm_start=False, n_jobs=1):
+
+        #权值相近的阈值
+        self.threshold = threshold
+        LogisticRegression.__init__(self, penalty='l1', dual=dual, tol=tol, C=C,
+                 fit_intercept=fit_intercept, intercept_scaling=intercept_scaling, class_weight=class_weight,
+                 random_state=random_state, solver=solver, max_iter=max_iter,
+                 multi_class=multi_class, verbose=verbose, warm_start=warm_start, n_jobs=n_jobs)
+        #使用同样的参数创建L2逻辑回归
+        self.l2 = LogisticRegression(penalty='l2', dual=dual, tol=tol, C=C, fit_intercept=fit_intercept, intercept_scaling=intercept_scaling, class_weight = class_weight, random_state=random_state, solver=solver, max_iter=max_iter, multi_class=multi_class, verbose=verbose, warm_start=warm_start, n_jobs=n_jobs)
+
+    def fit(self, X, y, sample_weight=None):
+        #训练L1逻辑回归
+        super(LR, self).fit(X, y, sample_weight=sample_weight)
+        self.coef_old_ = self.coef_.copy()
+        #训练L2逻辑回归
+        self.l2.fit(X, y, sample_weight=sample_weight)
+
+        cntOfRow, cntOfCol = self.coef_.shape
+        #权值系数矩阵的行数对应目标值的种类数目
+        for i in range(cntOfRow):
+            for j in range(cntOfCol):
+                coef = self.coef_[i][j]
+                #L1逻辑回归的权值系数不为0
+                if coef != 0:
+                    idx = [j]
+                    #对应在L2逻辑回归中的权值系数
+                    coef1 = self.l2.coef_[i][j]
+                    for k in range(cntOfCol):
+                        coef2 = self.l2.coef_[i][k]
+                        #在L2逻辑回归中，权值系数之差小于设定的阈值，且在L1中对应的权值为0
+                        if abs(coef1-coef2) < self.threshold and j != k and self.coef_[i][k] == 0:
+                            idx.append(k)
+                    #计算这一类特征的权值系数均值
+                    mean = coef / len(idx)
+                    self.coef_[i][idx] = mean
+        return self
+        """
+#特征选择
+sfm = SelectFromModel(LR(threshold=0.5, C=0.1))
+sfm.fit(features, target_train)
+features = sfm.transform(features)
+X_nojun = sfm.transform(X_nojun)
+X_jun = sfm.transform(X_jun)
+"""
+print 'selection ok'
 
 
 #训练模型
@@ -186,7 +267,7 @@ y = target_train
 #ab_whole = AdaBoostClassifier(n_estimators = 7)
 #ab_whole.fit(X,y)
 lr = LogisticRegression(n_jobs=-1)
-#lr.fit(X,y)
+lr.fit(X,y)
 #ar = AdaBoostRegressor()
 #ar.fit(X,y)
 #gbdt = GradientBoostingClassifier(n_estimators=100)
@@ -208,16 +289,20 @@ def giveResultOnTestset():
     df_test = df_test[df_test[2].notnull()]
     
     #features_test = df_test[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
-    features_test = chooseFeatures(df_test)
-    features_test = enc.transform(features_test)
+    features_test01, features_test = chooseFeatures(df_test)
     features_test = scaler.transform(features_test)
+    features_test = pf.transform(features_test)
+    features_test = sfm.transform(features_test)
+    features_test = np.column_stack((features_test01,features_test))
+    features_test = enc.transform(features_test)
+    
 
     #target_test = ar.predict(features_test)
     target_test = model.predict_proba(features_test)[:,1]
     
     
     df_res[4] = pd.DataFrame(target_test)
-    df_res.to_csv("v0_17_lr_scaled.csv",header=None,index=False)
+    df_res.to_csv("v0_19_lr_poly_selected.csv",header=None,index=False)
     print df_res[4].value_counts()
     return df_res
 
@@ -250,4 +335,4 @@ def calcAucJun():
 aucs = []
 test_jun_new, aucs = calcAucJun()
 s = pd.Series(aucs)
-print 'lr features scaled. Mean auc is : ',s.mean()
+print 'poly& select. Mean auc is : ',s.mean()
