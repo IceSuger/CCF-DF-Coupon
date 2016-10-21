@@ -79,7 +79,7 @@ def markTarget(df):
     return df
     
 def addFreqOfMerchant(df,sup_for_feature12, sup_for_feature13):
-    df = df[df[2].notnull()]
+    #df = df[df[2].notnull()]
     #当前商户在训练集中出现的频率：当前商户次数/训练集长度
     """
     chunks = []
@@ -120,7 +120,7 @@ df[6] = pd.to_datetime(df[6])
 sup_for_feature12 = pd.DataFrame(df[1].value_counts()/df.shape[0] *100) #百分比例
 #df = df[df[2].notnull()]
 sup_for_feature13 = pd.DataFrame(df[1].value_counts()/df.shape[0] *100) #百分比例
-#sup = pd.DataFrame(df[1].value_counts()/df.shape[0] *1000) #十分比例
+sup_for_feature15 = pd.DataFrame(df[1].value_counts()/df.shape[0] *100) #百分比例
 
 df = addFreqOfMerchant(df,sup_for_feature12, sup_for_feature13)
 df.columns=[0,1,2,3,4,5,6,12,13]
@@ -289,7 +289,7 @@ def calcAucJun():
     y_predict = model_nojun.predict_proba(X_jun)[:,1]
     print 'predict ok'
     y_predict = pd.DataFrame(y_predict)
-    y_predict.columns=[15]
+    y_predict.columns=[100]
     test_jun_new = pd.concat([test_jun, y_predict], axis=1) #把预测出来的6月结果，合并到6月的完整表的最后一列，方便下面的groupby和计算
     #print test_jun.head()
     #return test_jun, y_predict
