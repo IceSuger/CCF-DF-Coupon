@@ -1,0 +1,4 @@
+version		feature		preprocess	online_auc
+0.23		3,4,8,9,10,12,14,17		
+0.24 		3,4,8,9,10,12,14,17,20	MaxAbsScale,OneHot	0.53825059 
+

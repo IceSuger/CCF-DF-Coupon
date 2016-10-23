@@ -71,7 +71,7 @@ def markTarget(df):
     return df
     
 
-df = readAsChunks_hashead("offline5.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}).replace("null",np.nan)
+df = readAsChunks_hashead("offline6.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float}).replace("null",np.nan)
 df.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 df[5] = pd.to_datetime(df[5])
 df[6] = pd.to_datetime(df[6])
@@ -90,7 +90,7 @@ def chooseFeatures(df):
     cols.sort()
     df = df.ix[:,cols]
     #然后选出这些列作为特征，具体含义见FeatureExplaination.txt
-    return df[[0,1]],df[[3,4,8,9,10,12,14,17]].fillna(0).values
+    return df[[0,1]],df[[3,4,8,9,10,12,14,17,20]].fillna(0).values
     
 #usrid, merchantid, discountrate, man, jian, approxi_discountrate
 #features = df[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
@@ -114,14 +114,9 @@ features = np.column_stack((features01,features))
 X_nojun = np.column_stack((X_nojun01,X_nojun))
 X_jun = np.column_stack((X_jun01,X_jun))
 """
-#归一化/标准化
-#scaler = MaxAbsScaler()
-scaler = MinMaxScaler()
-scaler.fit(features)
-features = scaler.transform(features)
-X_nojun = scaler.transform(X_nojun)
-X_jun = scaler.transform(X_jun)
-print 'scale ok'
+
+
+
 #多项式数据变换
 pf = PolynomialFeatures()
 pf.fit(features)
@@ -129,6 +124,7 @@ features = pf.transform(features)
 X_nojun = pf.transform(X_nojun)
 X_jun = pf.transform(X_jun)
 print 'trans to polynomial ok'
+
 print features.shape
 """
 #特征选择 在哑编码之前
@@ -146,16 +142,31 @@ X_jun = sfm.transform(X_jun)
 features = np.column_stack((features01,features))
 X_nojun = np.column_stack((X_nojun01,X_nojun))
 X_jun = np.column_stack((X_jun01,X_jun))
-
-
+"""
+Xrf = features.copy()
+rf_whole = RandomForestClassifier( max_depth = 10, min_samples_split=2, n_estimators = 100, random_state = 1, n_jobs=-1) 
+rf_whole.fit(Xrf,target_train)
+"""
+Xrf = features.copy()
 #哑编码 One-hot encode
-enc = OneHotEncoder(categorical_features = np.array([0,1]) )
+enc = OneHotEncoder(categorical_features = np.array([0,1,2,4,5,8]) ,handle_unknown ='ignore' )
 enc.fit(features)
 features = enc.transform(features)
 X_nojun = enc.transform(X_nojun)
 X_jun = enc.transform(X_jun)
 
 print 'onehot ok', features.shape
+
+
+#归一化/标准化
+scaler = MaxAbsScaler()
+#scaler = MinMaxScaler()
+scaler.fit(features)
+features = scaler.transform(features)
+X_nojun = scaler.transform(X_nojun)
+X_jun = scaler.transform(X_jun)
+print 'scale ok'
+
 
 """
 #特征选择
@@ -176,7 +187,7 @@ y = target_train
 #rf.fit(X_train,y_train)
 
 
-#rf_whole = RandomForestClassifier(class_weight = 'auto', max_depth = 10, min_samples_split=2, n_estimators = 100, random_state = 1, n_jobs=-1) 
+#rf_whole = RandomForestClassifier( max_depth = 10, min_samples_split=2, n_estimators = 100, random_state = 1, n_jobs=-1) 
 #rf_whole.fit(X,y)
 #ab_whole = AdaBoostClassifier(n_estimators = 7)
 #ab_whole.fit(X,y)
@@ -195,16 +206,18 @@ def giveResultOnTestset():
     df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
     df_res = df_test[[0,2,5]]
     #读预处理过的测试集。
-    df_test = readAsChunks_hashead("test.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float})
+    df_test = readAsChunks_hashead("test2.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
     df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+    df_test[4] = df_test[4].fillna(df_test[4].mean())
     print 'test read in ok'
     #选择特征列
     features_test01, features_test = chooseFeatures(df_test)
-    features_test = scaler.transform(features_test)
+    
     features_test = pf.transform(features_test)
     #features_test = sfm.transform(features_test)
     features_test = np.column_stack((features_test01,features_test))
     features_test = enc.transform(features_test)
+    features_test = scaler.transform(features_test)
     
     target_test = model.predict_proba(features_test)[:,1]
     
@@ -215,8 +228,8 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v0_23.csv",header=None,index=False)
-    print df_res[4].value_counts()
+    df_res.to_csv("v0_25.csv",header=None,index=False)
+    #print df_res[4].value_counts()
     return df_res
 
 df_res = giveResultOnTestset()
