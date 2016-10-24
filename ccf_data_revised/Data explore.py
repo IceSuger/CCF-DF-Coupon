@@ -67,6 +67,8 @@ intersec_on_t_mer = np.intersect1d( on_merid, t_merid)
 intersec_off_t_mer = np.intersect1d( off_merid, t_merid)
 intersec_off_t_usr = np.intersect1d( off_usrid, t_usrid)
 intersec_on_t_usr = np.intersect1d( on_usrid, t_usrid)
+
+list(set(b).difference(set(a))) #求差集
 #上面这几行是拿训练集的做了对比
 
 

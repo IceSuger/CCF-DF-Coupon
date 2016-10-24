@@ -96,7 +96,7 @@ def modelfit(alg, X,y, useTrainCV=True, cv_folds=5):
     print "AUC Score (Train): %f" % metrics.roc_auc_score(y, dtrain_predprob)
     
     feat_imp = pd.Series(alg.booster().get_fscore()).sort_values(ascending=False)
-    feat_imp.plot(kind='bar', title='Feature Importances')
+    feat_imp.plot(kind='barh', title='Feature Importances')
     plt.ylabel('Feature Importance Score')
 
 
@@ -200,14 +200,14 @@ params = {
         "booster" : "gbtree",
         "eval_metric": "auc",
         "eta": 0.05,
-        "max_depth": 7,
+        "max_depth": 5,
         "subsample": 0.8,
         "colsample_bytree": 0.8,
         "silent": 0,
         "nthread":4,
         "seed": 27,
     }
-num_boost_round = 434
+num_boost_round = 100
 features = features.values
 target_train = target_train.values
 dtrain = xgb.DMatrix(features,label = target_train)
@@ -246,11 +246,12 @@ def giveResultOnTestset():
     df_test[4] = df_test[4].fillna(df_test[4].mean())
     print 'test read in ok'
     #选择特征列
-    features_test01, features_test = chooseFeatures(df_test)
+    #features_test01, features_test = chooseFeatures(df_test)
+    features_test = chooseFeatures(df_test).values
     
     #features_test = pf.transform(features_test)
     #features_test = sfm.transform(features_test)
-    features_test = np.column_stack((features_test01,features_test))
+    #features_test = np.column_stack((features_test01,features_test))
     #features_test = enc.transform(features_test)
     #features_test = scaler.transform(features_test)
     
@@ -266,7 +267,7 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v1_4 xgb_no poly no scale no dummy.csv",header=None,index=False)
+    df_res.to_csv("v1_6 xgb_no poly no scale no dummy.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
 
@@ -278,6 +279,9 @@ print 'A result generated.'
 #print cross_val_score(rf,X,y,cv=5,scoring='roc_auc',n_jobs=1).mean()
 
 #算6月平均auc
+#v1.5尝试 先把X_nojun的userid统计出来放在uid_nojun这个list中
+uid_nojun = X_nojun[0].unique()
+#然后下面算auc的时候，只统计uid属于这个列表的
 def calcAucJun():
     #model_nojun = model
     #model_nojun.fit(X_nojun, y_nojun)
@@ -294,8 +298,10 @@ def calcAucJun():
     y_predict = pd.DataFrame(y_predict)
     y_predict.columns=[100]
     test_jun_new = pd.concat([test_jun, y_predict], axis=1) #把预测出来的6月结果，合并到6月的完整表的最后一列，方便下面的groupby和计算
-    #print test_jun.head()
-    #return test_jun, y_predict
+    
+    #v1.5的尝试，在这里增加了一句，只取uid属于上面uid_nojun的来看
+    test_jun_new = test_jun_new[test_jun_new[0].isin(uid_nojun)]
+    
     auc_weight_list = []
     auc_list = []
     total = 0

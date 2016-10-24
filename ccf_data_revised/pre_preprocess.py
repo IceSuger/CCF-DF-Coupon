@@ -47,7 +47,6 @@ def readAsChunks_hashead(file_dir, types):
 #train_on = readAsChunks("ccf_online_stage1_train.csv", {0:int, 1:int, 2:int}).replace("null",np.nan)
 #test = readAsChunks("ccf_offline_stage1_test_revised.csv", {0:int, 1:int}).replace("null",np.nan)
 
-
 def markTarget(df):
     #正例反例标记
     df[11] = 0
@@ -158,11 +157,67 @@ def feature7(df):
     df[7] = df[6]-df[5]
     return df
 
-def testSetPreprocess(df):
-    df = df
+def generateSup15(df_origin):
+    #用户在该店消费次数
+    df = df_origin.copy()
+    df[150] = 0
+    df[150][ df[6].notnull() ] =1
+    df = df[[0,1,150]]
+    grouped = df.groupby([0,1], as_index=False)
+    m = grouped.sum()
+    m.to_csv("sup15.csv",header=None,index=False)
+    
+def generateSup16(df_origin):
+    #用户在该店领券次数
+    df = df_origin.copy()
+    df[150] = 0
+    df[150][ (df[2]>0) ] =1
+    df = df[[0,1,150]]
+    grouped = df.groupby([0,1], as_index=False)
+    m = grouped.sum()
+    m.to_csv("sup16.csv",header=None,index=False)
+    
+def generateSup23(df_origin):
+    #用户在该店用券消费次数
+    df = df_origin.copy()
+    df[150] = 0
+    df[150][ (df[6].notnull() & df[2]>0) ] =1
+    df = df[[0,1,150]]
+    grouped = df.groupby([0,1], as_index=False)
+    m = grouped.sum()
+    m.to_csv("sup23.csv",header=None,index=False)
+
+def feature15(df_origin):
+    #填入特征15
+    m = pd.read_csv("sup15.csv",dtype={2:int},header=None )
+    m.rename(columns={2:15}, inplace=True)
+    merged = pd.merge( df_origin, m, on=[0,1], how='left' )
+    merged[15] = merged[15].fillna(0)
+    return merged
+
+def feature16(df_origin):
+    #填入特征16
+    m = pd.read_csv("sup16.csv",dtype={2:int},header=None )
+    m.rename(columns={2:16}, inplace=True)
+    merged = pd.merge( df_origin, m, on=[0,1], how='left' )
+    merged[16] = merged[16].fillna(0)
+    return merged
+    
+def feature23(df_origin):
+    #填入特征23
+    m = pd.read_csv("sup23.csv",dtype={2:int},header=None )
+    m.rename(columns={2:23}, inplace=True)
+    merged = pd.merge( df_origin, m, on=[0,1], how='left' )
+    merged[23] = merged[23].fillna(0)
+    return merged
+
+def feature24and25(df):
+    df[24] = (df[23]/df[15]).fillna(0)
+    df[25] = (df[23]/df[16]).fillna(0)
+    return df
     
 #train_off = readAsChunks("ccf_offline_stage1_train.csv", {0:int, 1:int}) #.replace("null",np.nan)
-train_off = readAsChunks_hashead("offline5.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+train_off = readAsChunks_hashead("offline6.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
 train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 
 #train_off = process5and6(train_off) #feature5,6
@@ -171,24 +226,36 @@ train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直�
 
 #为了计算当前商户在训练集中出现的频率：当前商户次数/训练集长度，在这里计算一下这个频率，存入sup(辅助)
 #放在函数外面，是为了训练集、测试集都可以用它来merge
-sup_for_feature12 = pd.DataFrame(train_off[1].value_counts()/train_off.shape[0] *100) #百分比例
-size = train_off[(train_off[2]>0)].shape[0]
-sup_for_feature13 = pd.DataFrame(train_off[1].value_counts()/size *100) #百分比例
+#sup_for_feature12 = pd.DataFrame(train_off[1].value_counts()/train_off.shape[0] *100) #百分比例
+#size = train_off[(train_off[2]>0)].shape[0]
+#sup_for_feature13 = pd.DataFrame(train_off[1].value_counts()/size *100) #百分比例
 
 #train_off = addFreqOfMerchant(train_off,sup_for_feature12, sup_for_feature13) #feature12,13
 df = markTarget(train_off) #feature/target 11
 #df = fill4(df)     #feature4
 
-print 'filled'
+print 'targeted'
 #save = feature17(df)   #feature17
-print 'added 17'
 #df = splitDiscountRateCol(train_off)   #feature3,8,9,10
 
-#generateSup20(df)    #先生成特征20的辅助文件
-save = feature20(df)   #feature20
-save.to_csv("offline6.csv",index=False)
+generateSup15(df)    #先生成特征??的辅助文件
+generateSup16(df)
+generateSup23(df)
+print 'sups generated'
+df = feature15(df)   #feature??
+df = feature16(df) 
+df = feature23(df) 
+save = feature24and25(df)
+
+#处理一下col7.有必要吗？其实没有。反正后面也不用它。算了，不处理了。
+
+
+save.to_csv("offline7.csv",index=False)
 print 'saved'
 
+
+
+"""
 #下面处理测试集
 df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
 #df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
@@ -203,3 +270,4 @@ df_test = splitDiscountRateCol(df_test)
 df_test = processDate(df_test)
 df_test = df_test.fillna(df_test.mean()) #下一次尝试[17:13]，对于4的缺失值单独处理
 df_test.to_csv("test2.csv",index=False)
+"""
