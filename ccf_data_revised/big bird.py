@@ -26,6 +26,13 @@ from sklearn.feature_selection import SelectFromModel
 from sklearn.preprocessing import RobustScaler
 import xgboost as xgb
 from xgboost.sklearn import XGBClassifier
+from sklearn.grid_search import GridSearchCV   
+
+#运行之前，先把下面这两行拷到console里运行一下
+#import matplotlib.pylab as plt
+#%matplotlib inline
+from matplotlib.pylab import rcParams
+rcParams['figure.figsize'] = 12, 4
 
 
 #pd.set_option('display.float_format', lambda x: '%.13f' % x) #为了直观的显示数字，且为了输出提交文件的格式不出问题，不采用科学计数法
@@ -67,25 +74,26 @@ def readAsChunks_hashead(file_dir, types):
     return df
 
 
-def modelfit(alg, dtrain, predictors,useTrainCV=True, cv_folds=5, early_stopping_rounds=50):
+def modelfit(alg, X,y, useTrainCV=True, cv_folds=5):
     if useTrainCV:
         xgb_param = alg.get_xgb_params()
-        xgtrain = xgb.DMatrix(dtrain[predictors].values, label=dtrain[target].values)
+        xgtrain = xgb.DMatrix(X.values, label=y.values)
         cvresult = xgb.cv(xgb_param, xgtrain, num_boost_round=alg.get_params()['n_estimators'], nfold=cv_folds,
-            metrics='auc', early_stopping_rounds=early_stopping_rounds, show_progress=False)
+            metrics=['auc'], #网上有文章说这个地方一定要放进一个list里，不然会有问题
+            early_stopping_rounds=50, verbose_eval =1)
         alg.set_params(n_estimators=cvresult.shape[0])
     
     #Fit the algorithm on the data
-    alg.fit(dtrain[predictors], dtrain['Disbursed'],eval_metric='auc')
+    alg.fit(X, y,eval_metric='auc')
     
     #Predict training set:
-    dtrain_predictions = alg.predict(dtrain[predictors])
-    dtrain_predprob = alg.predict_proba(dtrain[predictors])[:,1]
+    dtrain_predictions = alg.predict(X)
+    dtrain_predprob = alg.predict_proba(X)[:,1]
     
     #Print model report:
     print "\nModel Report"
-    print "Accuracy : %.4g" % metrics.accuracy_score(dtrain['Disbursed'].values, dtrain_predictions)
-    print "AUC Score (Train): %f" % metrics.roc_auc_score(dtrain['Disbursed'], dtrain_predprob)
+    print "Accuracy : %.4g" % metrics.accuracy_score(y.values, dtrain_predictions)
+    print "AUC Score (Train): %f" % metrics.roc_auc_score(y, dtrain_predprob)
     
     feat_imp = pd.Series(alg.booster().get_fscore()).sort_values(ascending=False)
     feat_imp.plot(kind='bar', title='Feature Importances')
@@ -105,12 +113,8 @@ df.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入
 df[5] = pd.to_datetime(df[5])
 df[6] = pd.to_datetime(df[6])
 
-
 #打上分类标记
 df = markTarget(df)
-#print df.columns
-
-
 
 #统一为一个函数，在这里面统一选择作为特征的列
 def chooseFeatures(df):
@@ -119,58 +123,36 @@ def chooseFeatures(df):
     cols.sort()
     df = df.ix[:,cols]
     #然后选出这些列作为特征，具体含义见FeatureExplaination.txt
-    return df[[0,1]],df[[3,4,8,9,10,12,14,17,20]].fillna(0).values
+    #return df[[0,1]],df[[3,4,8,9,10,12,14,17,20]] #.fillna(0).values
+    return df[[0,1,3,4,8,9,10,12,14,17,20]]
     
-#usrid, merchantid, discountrate, man, jian, approxi_discountrate
-#features = df[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
-features01, features = chooseFeatures(df)
+#features01, features = chooseFeatures(df)
+features = chooseFeatures(df)
 target_train = df[11]
 
 #下面把六月的拆出来，作为线下算平均auc的测试集
 #print df.head()
 #train_nojun = df.drop(df[df[5].apply(lambda x:x.month)==6] , axis=1)
 train_nojun = df[df[5].apply(lambda x:x.month)!=6]
-X_nojun01, X_nojun = chooseFeatures(train_nojun)
+#X_nojun01, X_nojun = chooseFeatures(train_nojun)
+X_nojun = chooseFeatures(train_nojun)
 y_nojun = train_nojun[11]
 
 test_jun = df[df[5].apply(lambda x:x.month)==6]
 y_jun = test_jun[11]
-X_jun01, X_jun = chooseFeatures(test_jun)
+#X_jun01, X_jun = chooseFeatures(test_jun)
+X_jun = chooseFeatures(test_jun)
 
-"""
-#把usrid，merchantid合并进features
-features = np.column_stack((features01,features))
-X_nojun = np.column_stack((X_nojun01,X_nojun))
-X_jun = np.column_stack((X_jun01,X_jun))
-"""
-
-
-
-#多项式数据变换
-pf = PolynomialFeatures()
-pf.fit(features)
-features = pf.transform(features)
-X_nojun = pf.transform(X_nojun)
-X_jun = pf.transform(X_jun)
-print 'trans to polynomial ok'
 
 print features.shape
-"""
-#特征选择 在哑编码之前
-rf = RandomForestClassifier(max_depth = 10, min_samples_split=2, n_estimators = 100, random_state = 1, n_jobs=-1)
-rf.fit(features, target_train)
-sfm = SelectFromModel(rf, threshold=0.01, prefit=True)
-#sfm.fit(features, target_train)
-features = sfm.transform(features)
-X_nojun = sfm.transform(X_nojun)
-X_jun = sfm.transform(X_jun)
-"""
 
-""" 本来在这，移到前面试试看。结论是不能移到前面，不然的话，经过poly，那他妈的维数"""
+
+""" 本来在这，移到前面试试看。结论是不能移到前面，不然的话，经过poly，那他妈的维数
 #把usrid，merchantid合并进features
 features = np.column_stack((features01,features))
 X_nojun = np.column_stack((X_nojun01,X_nojun))
 X_jun = np.column_stack((X_jun01,X_jun))
+"""
 """
 Xrf = features.copy()
 rf_whole = RandomForestClassifier( max_depth = 10, min_samples_split=2, n_estimators = 100, random_state = 1, n_jobs=-1) 
@@ -198,14 +180,7 @@ X_jun = scaler.transform(X_jun)
 print 'scale ok'
 """
 
-"""
-#特征选择
-sfm = SelectFromModel(LR(threshold=0.5, C=0.1))
-sfm.fit(features, target_train)
-features = sfm.transform(features)
-X_nojun = sfm.transform(X_nojun)
-X_jun = sfm.transform(X_jun)
-"""
+
 print 'preprocess ok'
 
 
@@ -213,43 +188,51 @@ print 'preprocess ok'
 X = features
 y = target_train
 
-#rf = RandomForestClassifier(max_depth = 10, min_samples_split=2, n_estimators = 100, random_state = 1, n_jobs=-1) 
-#rf.fit(X_train,y_train)
-
-
-#rf_whole = RandomForestClassifier( max_depth = 10, min_samples_split=2, n_estimators = 100, random_state = 1, n_jobs=-1) 
-#rf_whole.fit(X,y)
-#ab_whole = AdaBoostClassifier(n_estimators = 7)
-#ab_whole.fit(X,y)
-#lr = LogisticRegression(class_weight = 'auto', n_jobs=-1)
-
-#lr = LogisticRegression( n_jobs=-1)
-#lr.fit(X,y)
-#ar = AdaBoostRegressor()
-#ar.fit(X,y)
-#gbdt = GradientBoostingClassifier(n_estimators=100)
-#rfr = RandomForestRegressor(n_estimators=10,n_jobs=-1,verbose=2)
-
 #model = lr
 print 'training ok'
 
 
 
 #XGB
+
 params = {
         "objective": "binary:logistic",
         "booster" : "gbtree",
         "eval_metric": "auc",
-        "eta": 0.1,
-        "max_depth": 5,
+        "eta": 0.05,
+        "max_depth": 7,
         "subsample": 0.8,
         "colsample_bytree": 0.8,
         "silent": 0,
-        "seed": 1,
+        "nthread":4,
+        "seed": 27,
     }
-num_boost_round = 40
+num_boost_round = 434
+features = features.values
+target_train = target_train.values
 dtrain = xgb.DMatrix(features,label = target_train)
 gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
+
+"""
+#XGB TUNE
+#Choose all predictors except target & IDcols
+#predictors = [x for x in train.columns if x not in [11]]
+xgb1 = XGBClassifier(
+     learning_rate =0.05,
+     n_estimators=1000, #好像在eta 0.1时测出来是最好为417
+     max_depth=7,
+     min_child_weight=1,
+     gamma=0,
+     subsample=0.8,
+     colsample_bytree=0.8,
+     objective= 'binary:logistic',
+     nthread=4,
+     scale_pos_weight=1,
+     seed=27)
+modelfit(xgb1, X,y)
+"""
+
+
 
 print 'xgb train ok'
 
@@ -265,7 +248,7 @@ def giveResultOnTestset():
     #选择特征列
     features_test01, features_test = chooseFeatures(df_test)
     
-    features_test = pf.transform(features_test)
+    #features_test = pf.transform(features_test)
     #features_test = sfm.transform(features_test)
     features_test = np.column_stack((features_test01,features_test))
     #features_test = enc.transform(features_test)
@@ -283,7 +266,7 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v1_2 xgb_no scale no dummy.csv",header=None,index=False)
+    df_res.to_csv("v1_4 xgb_no poly no scale no dummy.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
 
@@ -326,6 +309,7 @@ def calcAucJun():
 
 aucs = []
 aucs_w = []
+total = 1
 test_jun_new, aucs_w, aucs, total = calcAucJun()
 s_w = pd.Series(aucs_w)
 s = pd.Series(aucs)

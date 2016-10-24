@@ -1,10 +1,12 @@
 version		feature		preprocess	online_auc
 0.23		3,4,8,9,10,12,14,17		
 0.24 		3,4,8,9,10,12,14,17,20	MaxAbsScale,OneHot	0.53825059 
-0.25
+0.25		尝试先多项式化，然后把原本的特征3 8 9 14的列号挑出来，也哑编码，最后一起MaxAbsScale   0.57818376 
 1.0
 
+-------------
 1.2		3,4,8,9,10,12,14,17,20	xgb_no scale no dumm	
+0.57312655 
 params = {
         "objective": "binary:logistic",
         "booster" : "gbtree",
@@ -17,4 +19,43 @@ params = {
         "seed": 1,
     }
 num_boost_round = 20
+------------------
+v1.3
+全都和1.2相同，只是1.3不做poly了。结果线上 0.60074065 
+-----------------
+v1.4
+xgb1 = XGBClassifier(
+     learning_rate =0.1,
+     n_estimators=500, #好像在eta 0.1时测出来是最好为417
+     max_depth=5,
+     min_child_weight=1,
+     gamma=0,
+     subsample=0.8,
+     colsample_bytree=0.8,
+     objective= 'binary:logistic',
+     nthread=4,
+     scale_pos_weight=1,
+     seed=27)
+	 这时候找到的最佳n_estimators = 417.（当时的test-auc:0.998426+小量）
+	 
+尝试参数xgb2 = XGBClassifier(
+     learning_rate =0.05,
+     n_estimators=1000, #好像在eta 0.1时测出来是最好为417
+     max_depth=7,
+     min_child_weight=1,
+     gamma=0,
+     subsample=0.8,
+     colsample_bytree=0.8,
+     objective= 'binary:logistic',
+     nthread=4,
+     scale_pos_weight=1,
+     seed=27)
+	 这时候找到的最佳n_estimators = 434。（当时test-auc:0.998435+2.08864e-5）
+但用第二套参数预测，提交之后，线上成绩只有0.58551380 
+---------
+v1.5
+1. 首先尝试仿照7月集合和全部训练集的关系，构造六月验证集。因为7月的全部userid几乎都在训练集中出现过，那么对六月的验证集，算平均auc时就只考虑userid在X_nojun这一训练集中出现过的条目。
+结果是 还他妈不如之前的呢。本来0.494的，现在0.489了，线上可是0.6啊。
+
+
 
