@@ -108,7 +108,7 @@ def markTarget(df):
     return df
     
 
-df = readAsChunks_hashead("offline6.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float}).replace("null",np.nan)
+df = readAsChunks_hashead("offline7.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float, '15':int, '16':int, '23':int, '24':float, '25':float}).replace("null",np.nan)
 df.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 df[5] = pd.to_datetime(df[5])
 df[6] = pd.to_datetime(df[6])
@@ -124,7 +124,7 @@ def chooseFeatures(df):
     df = df.ix[:,cols]
     #然后选出这些列作为特征，具体含义见FeatureExplaination.txt
     #return df[[0,1]],df[[3,4,8,9,10,12,14,17,20]] #.fillna(0).values
-    return df[[0,1,3,4,8,9,10,12,14,17,20]]
+    return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
     
 #features01, features = chooseFeatures(df)
 features = chooseFeatures(df)
@@ -207,7 +207,7 @@ params = {
         "nthread":4,
         "seed": 27,
     }
-num_boost_round = 100
+num_boost_round = 130
 features = features.values
 target_train = target_train.values
 dtrain = xgb.DMatrix(features,label = target_train)
@@ -241,7 +241,7 @@ def giveResultOnTestset():
     df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
     df_res = df_test[[0,2,5]]
     #读预处理过的测试集。
-    df_test = readAsChunks_hashead("test2.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
+    df_test = readAsChunks_hashead("test3.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float, '15':int, '16':int, '23':int, '24':float, '25':float})
     df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
     df_test[4] = df_test[4].fillna(df_test[4].mean())
     print 'test read in ok'
@@ -267,7 +267,7 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v1_6 xgb_no poly no scale no dummy.csv",header=None,index=False)
+    df_res.to_csv("v1_9.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
 
@@ -316,7 +316,7 @@ def calcAucJun():
 aucs = []
 aucs_w = []
 total = 1
-test_jun_new, aucs_w, aucs, total = calcAucJun()
+#test_jun_new, aucs_w, aucs, total = calcAucJun()
 s_w = pd.Series(aucs_w)
 s = pd.Series(aucs)
 print 'Weighted Mean auc is : ',s_w.sum()/total

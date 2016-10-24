@@ -217,8 +217,8 @@ def feature24and25(df):
     return df
     
 #train_off = readAsChunks("ccf_offline_stage1_train.csv", {0:int, 1:int}) #.replace("null",np.nan)
-train_off = readAsChunks_hashead("offline6.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
-train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+#train_off = readAsChunks_hashead("offline6.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+#train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 
 #train_off = process5and6(train_off) #feature5,6
 #train_off = feature7(train_off)    #feature7
@@ -231,13 +231,13 @@ train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直�
 #sup_for_feature13 = pd.DataFrame(train_off[1].value_counts()/size *100) #百分比例
 
 #train_off = addFreqOfMerchant(train_off,sup_for_feature12, sup_for_feature13) #feature12,13
-df = markTarget(train_off) #feature/target 11
+#df = markTarget(train_off) #feature/target 11
 #df = fill4(df)     #feature4
 
 print 'targeted'
 #save = feature17(df)   #feature17
 #df = splitDiscountRateCol(train_off)   #feature3,8,9,10
-
+"""
 generateSup15(df)    #先生成特征??的辅助文件
 generateSup16(df)
 generateSup23(df)
@@ -252,14 +252,14 @@ save = feature24and25(df)
 
 save.to_csv("offline7.csv",index=False)
 print 'saved'
-
-
-
 """
-#下面处理测试集
-df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
-#df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 
+
+
+#下面处理测试集
+#df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
+#df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+"""
 df_test = feature17(df_test)
 print '17 ok'
 df_test = feature20(df_test)
@@ -271,3 +271,22 @@ df_test = processDate(df_test)
 df_test = df_test.fillna(df_test.mean()) #下一次尝试[17:13]，对于4的缺失值单独处理
 df_test.to_csv("test2.csv",index=False)
 """
+
+"""
+df_test = readAsChunks_hashead("test2.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
+df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+    
+
+df_test = feature15(df_test)   #feature??
+df_test = feature16(df_test) 
+df_test = feature23(df_test) 
+df_test = feature24and25(df_test)
+df_test.to_csv("test3.csv",index=False)
+"""
+
+
+#下面处理线上训练集
+train_on = readAsChunks_nohead("ccf_online_stage1_train.csv", {0:int, 1:int}).replace("null",np.nan)
+
+
+

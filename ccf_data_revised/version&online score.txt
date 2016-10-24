@@ -56,6 +56,44 @@ xgb1 = XGBClassifier(
 v1.5
 1. 首先尝试仿照7月集合和全部训练集的关系，构造六月验证集。因为7月的全部userid几乎都在训练集中出现过，那么对六月的验证集，算平均auc时就只考虑userid在X_nojun这一训练集中出现过的条目。
 结果是 还他妈不如之前的呢。本来0.494的，现在0.489了，线上可是0.58551380啊。
+------------
+v1.6
+params = {
+        "objective": "binary:logistic",
+        "booster" : "gbtree",
+        "eval_metric": "auc",
+        "eta": 0.05,
+        "max_depth": 5,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "silent": 0,
+        "nthread":4,
+        "seed": 27,
+    }
+num_boost_round = 100
 
+---------
+v1.7 这个版本生成的预测结果，用了和1.6一样的参数。而特征新加了15 16 23 24 25.
+线上0.62250
+---------
+v1.8 
+params = {
+        "objective": "binary:logistic",
+        "booster" : "gbtree",
+        "eval_metric": "auc",
+        "eta": 0.05,
+        "max_depth": 5,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "silent": 0,
+        "nthread":4,
+        "seed": 27,
+    }
+num_boost_round = 130
+特征和1.7一样，只是改了num_boost_round，现在只能通过提交看线上成绩来调参了....线下调参没有什么好的办法
+
+--------
+v1.9
+这个版本打算尝试加入特征13，看看效果如何
 
 
