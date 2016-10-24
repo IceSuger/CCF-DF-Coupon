@@ -10,6 +10,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 import matplotlib.pyplot as plt
 from sklearn.cross_validation import train_test_split  
+from sklearn import cross_validation, metrics   #Additional     scklearn functions
 from sklearn.metrics import roc_auc_score
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.ensemble import AdaBoostRegressor
@@ -23,6 +24,9 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.feature_selection import SelectFromModel
 from sklearn.preprocessing import RobustScaler
+import xgboost as xgb
+from xgboost.sklearn import XGBClassifier
+
 
 #pd.set_option('display.float_format', lambda x: '%.13f' % x) #为了直观的显示数字，且为了输出提交文件的格式不出问题，不采用科学计数法
 
@@ -62,7 +66,32 @@ def readAsChunks_hashead(file_dir, types):
     #分块将.txt文件读入内存，放到一个 pandas 的 dataFrame 里。块大小（即每次读的行数）为chunk_size
     return df
 
+
+def modelfit(alg, dtrain, predictors,useTrainCV=True, cv_folds=5, early_stopping_rounds=50):
+    if useTrainCV:
+        xgb_param = alg.get_xgb_params()
+        xgtrain = xgb.DMatrix(dtrain[predictors].values, label=dtrain[target].values)
+        cvresult = xgb.cv(xgb_param, xgtrain, num_boost_round=alg.get_params()['n_estimators'], nfold=cv_folds,
+            metrics='auc', early_stopping_rounds=early_stopping_rounds, show_progress=False)
+        alg.set_params(n_estimators=cvresult.shape[0])
     
+    #Fit the algorithm on the data
+    alg.fit(dtrain[predictors], dtrain['Disbursed'],eval_metric='auc')
+    
+    #Predict training set:
+    dtrain_predictions = alg.predict(dtrain[predictors])
+    dtrain_predprob = alg.predict_proba(dtrain[predictors])[:,1]
+    
+    #Print model report:
+    print "\nModel Report"
+    print "Accuracy : %.4g" % metrics.accuracy_score(dtrain['Disbursed'].values, dtrain_predictions)
+    print "AUC Score (Train): %f" % metrics.roc_auc_score(dtrain['Disbursed'], dtrain_predprob)
+    
+    feat_imp = pd.Series(alg.booster().get_fscore()).sort_values(ascending=False)
+    feat_imp.plot(kind='bar', title='Feature Importances')
+    plt.ylabel('Feature Importance Score')
+
+
 def markTarget(df):
     #正例反例标记
     df[11] = 0
@@ -148,16 +177,17 @@ rf_whole = RandomForestClassifier( max_depth = 10, min_samples_split=2, n_estima
 rf_whole.fit(Xrf,target_train)
 """
 Xrf = features.copy()
+"""
 #哑编码 One-hot encode
 enc = OneHotEncoder(categorical_features = np.array([0,1,2,4,5,8]) ,handle_unknown ='ignore' )
 enc.fit(features)
 features = enc.transform(features)
 X_nojun = enc.transform(X_nojun)
 X_jun = enc.transform(X_jun)
-
+"""
 print 'onehot ok', features.shape
 
-
+"""
 #归一化/标准化
 scaler = MaxAbsScaler()
 #scaler = MinMaxScaler()
@@ -166,7 +196,7 @@ features = scaler.transform(features)
 X_nojun = scaler.transform(X_nojun)
 X_jun = scaler.transform(X_jun)
 print 'scale ok'
-
+"""
 
 """
 #特征选择
@@ -192,14 +222,36 @@ y = target_train
 #ab_whole = AdaBoostClassifier(n_estimators = 7)
 #ab_whole.fit(X,y)
 #lr = LogisticRegression(class_weight = 'auto', n_jobs=-1)
-lr = LogisticRegression( n_jobs=-1)
-lr.fit(X,y)
+
+#lr = LogisticRegression( n_jobs=-1)
+#lr.fit(X,y)
 #ar = AdaBoostRegressor()
 #ar.fit(X,y)
 #gbdt = GradientBoostingClassifier(n_estimators=100)
 #rfr = RandomForestRegressor(n_estimators=10,n_jobs=-1,verbose=2)
-model = lr
+
+#model = lr
 print 'training ok'
+
+
+
+#XGB
+params = {
+        "objective": "binary:logistic",
+        "booster" : "gbtree",
+        "eval_metric": "auc",
+        "eta": 0.1,
+        "max_depth": 5,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "silent": 0,
+        "seed": 1,
+    }
+num_boost_round = 40
+dtrain = xgb.DMatrix(features,label = target_train)
+gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
+
+print 'xgb train ok'
 
 def giveResultOnTestset():
     #读测试数据。这里是题目给的原始数据，读它是为了保证提交结果的前三列格式不出问题
@@ -216,11 +268,14 @@ def giveResultOnTestset():
     features_test = pf.transform(features_test)
     #features_test = sfm.transform(features_test)
     features_test = np.column_stack((features_test01,features_test))
-    features_test = enc.transform(features_test)
-    features_test = scaler.transform(features_test)
+    #features_test = enc.transform(features_test)
+    #features_test = scaler.transform(features_test)
     
-    target_test = model.predict_proba(features_test)[:,1]
+    #target_test = model.predict_proba(features_test)[:,1]
     
+    #XGBOOST
+    target_test = gbm.predict(xgb.DMatrix(features_test), ntree_limit=gbm.best_iteration)
+
     
     df_res[4] = pd.DataFrame(target_test)
     #不想要科学计数法的结果
@@ -228,7 +283,7 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v0_25.csv",header=None,index=False)
+    df_res.to_csv("v1_2 xgb_no scale no dummy.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
 
@@ -241,11 +296,17 @@ print 'A result generated.'
 
 #算6月平均auc
 def calcAucJun():
-    #model_nojun = LogisticRegression(n_jobs=-1)
-    model_nojun = model
-    model_nojun.fit(X_nojun, y_nojun)
+    #model_nojun = model
+    #model_nojun.fit(X_nojun, y_nojun)
+    
+    #xgb
+    dtrain = xgb.DMatrix(X_nojun,label = y_nojun)
+    gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
+    
     print 'train ok'
-    y_predict = model_nojun.predict_proba(X_jun)[:,1]
+    #y_predict = model_nojun.predict_proba(X_jun)[:,1]
+    y_predict = gbm.predict(xgb.DMatrix(X_jun), ntree_limit=gbm.best_iteration)
+
     print 'predict ok'
     y_predict = pd.DataFrame(y_predict)
     y_predict.columns=[100]

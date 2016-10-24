@@ -1,4 +1,20 @@
 version		feature		preprocess	online_auc
 0.23		3,4,8,9,10,12,14,17		
 0.24 		3,4,8,9,10,12,14,17,20	MaxAbsScale,OneHot	0.53825059 
+0.25
+1.0
+
+1.2		3,4,8,9,10,12,14,17,20	xgb_no scale no dumm	
+params = {
+        "objective": "binary:logistic",
+        "booster" : "gbtree",
+        "eval_metric": "auc",
+        "eta": 0.1,
+        "max_depth": 5,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "silent": 0,
+        "seed": 1,
+    }
+num_boost_round = 20
 
