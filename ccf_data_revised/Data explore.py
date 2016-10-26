@@ -68,22 +68,9 @@ intersec_off_t_mer = np.intersect1d( off_merid, t_merid)
 intersec_off_t_usr = np.intersect1d( off_usrid, t_usrid)
 intersec_on_t_usr = np.intersect1d( on_usrid, t_usrid)
 
-list(set(b).difference(set(a))) #求差集
+#list(set(b).difference(set(a))) #求差集
 #上面这几行是拿训练集的做了对比
 
 
 
 #sup_17 = pd.DataFrame( df[0].apply(lambda x:df[(df[0]==x & df[11]==1)].shape[0])/df[0].apply(lambda x:df[df[0]==x].shape[0]) )
-
-df = train_off
-usrid = []
-times_use_coupon = []
-times_purchase = []
-for name, group in df.groupby(df[0]):
-    usrid.append(name)
-    times_use_coupon.append(group)
-    times_purchase.append(group.size)
-    
-    
-    
-    

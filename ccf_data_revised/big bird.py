@@ -104,7 +104,8 @@ def markTarget(df):
     #正例反例标记
     df[11] = 0
     #df[11][ (df[6].notnull() & df[2].notnull() )& (df[7].astype('timedelta64[D]').fillna(200).astype('int')<16)] = 1
-    df[11][ df[6].notnull() & df[2].notnull()] =1
+    #df[11][ df[6].notnull() & df[2].notnull()] =1
+    df[11][ (df[6].notnull() & df[2]>0 )] =1
     return df
     
 
@@ -124,7 +125,7 @@ def chooseFeatures(df):
     df = df.ix[:,cols]
     #然后选出这些列作为特征，具体含义见FeatureExplaination.txt
     #return df[[0,1]],df[[3,4,8,9,10,12,14,17,20]] #.fillna(0).values
-    return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
+    return df[[0,1,3,4,8,9,10,12,13,14,15,16,17,20,23,24,25]]
     
 #features01, features = chooseFeatures(df)
 features = chooseFeatures(df)
@@ -145,7 +146,6 @@ X_jun = chooseFeatures(test_jun)
 
 
 print features.shape
-
 
 """ 本来在这，移到前面试试看。结论是不能移到前面，不然的话，经过poly，那他妈的维数
 #把usrid，merchantid合并进features
@@ -194,9 +194,9 @@ print 'training ok'
 
 
 #XGB
-
 params = {
         "objective": "binary:logistic",
+        "scale_pos_weight": 0.043,#设为正例反例比例
         "booster" : "gbtree",
         "eval_metric": "auc",
         "eta": 0.05,
@@ -207,8 +207,8 @@ params = {
         "nthread":4,
         "seed": 27,
     }
-num_boost_round = 130
-features = features.values
+num_boost_round = 96
+#features = features.values
 target_train = target_train.values
 dtrain = xgb.DMatrix(features,label = target_train)
 gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
@@ -247,7 +247,7 @@ def giveResultOnTestset():
     print 'test read in ok'
     #选择特征列
     #features_test01, features_test = chooseFeatures(df_test)
-    features_test = chooseFeatures(df_test).values
+    features_test = chooseFeatures(df_test) #.values
     
     #features_test = pf.transform(features_test)
     #features_test = sfm.transform(features_test)
@@ -267,7 +267,7 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v1_9.csv",header=None,index=False)
+    df_res.to_csv("v1_14 balanced.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
 
@@ -281,6 +281,7 @@ print 'A result generated.'
 #算6月平均auc
 #v1.5尝试 先把X_nojun的userid统计出来放在uid_nojun这个list中
 uid_nojun = X_nojun[0].unique()
+mid_nojun = X_nojun[1].unique()
 #然后下面算auc的时候，只统计uid属于这个列表的
 def calcAucJun():
     #model_nojun = model
@@ -300,7 +301,8 @@ def calcAucJun():
     test_jun_new = pd.concat([test_jun, y_predict], axis=1) #把预测出来的6月结果，合并到6月的完整表的最后一列，方便下面的groupby和计算
     
     #v1.5的尝试，在这里增加了一句，只取uid属于上面uid_nojun的来看
-    test_jun_new = test_jun_new[test_jun_new[0].isin(uid_nojun)]
+    #test_jun_new = test_jun_new[test_jun_new[0].isin(uid_nojun)]
+    #test_jun_new = test_jun_new[test_jun_new[1].isin(uid_nojun)]
     
     auc_weight_list = []
     auc_list = []
@@ -316,8 +318,10 @@ def calcAucJun():
 aucs = []
 aucs_w = []
 total = 1
-#test_jun_new, aucs_w, aucs, total = calcAucJun()
+test_jun_new, aucs_w, aucs, total = calcAucJun()
 s_w = pd.Series(aucs_w)
 s = pd.Series(aucs)
 print 'Weighted Mean auc is : ',s_w.sum()/total
 print 'Direct Mean auc is: ',s.mean()
+#画图，看feature importances
+#pd.Series(gbm.get_fscore()).sort_values().plot(kind='barh',title='Feature importance')
