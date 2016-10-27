@@ -114,6 +114,11 @@ def splitDiscountRateCol(df):
     
     return df    
 
+def feature30(df):
+    df[30] = 0
+    df[30][df[3].str.contains('f').fillna(True)] = '1'
+    return df
+
 def processDate(df):
     #领券日期 是当月的几号
     df[14] = df[5].apply(lambda x:x.day)

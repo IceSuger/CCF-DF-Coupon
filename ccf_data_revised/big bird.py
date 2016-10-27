@@ -4,6 +4,7 @@ Created on Wed Oct 12 23:12:53 2016
 
 @author: X93
 """
+from __future__ import division #为了让整数相除得到小数，否则只能得到整数
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression 
@@ -104,8 +105,12 @@ def markTarget(df):
     #正例反例标记
     df[11] = 0
     #df[11][ (df[6].notnull() & df[2].notnull() )& (df[7].astype('timedelta64[D]').fillna(200).astype('int')<16)] = 1
-    #df[11][ df[6].notnull() & df[2].notnull()] =1
-    df[11][ (df[6].notnull() & df[2]>0 )] =1
+    df[11][ df[6].notnull() & df[2].notnull()] =1
+    #df[11][ ( (df[6].notnull()) & (df[2]>0) )] =1
+    
+    df[7] = df[6]-df[5]
+    df[31] = 0
+    df[31][( ((df[6].notnull()) & (df[2]>0) )& (df[7].astype('timedelta64[D]').fillna(200).astype('int')<16))] = 1
     return df
     
 
@@ -140,7 +145,7 @@ X_nojun = chooseFeatures(train_nojun)
 y_nojun = train_nojun[11]
 
 test_jun = df[df[5].apply(lambda x:x.month)==6]
-y_jun = test_jun[11]
+y_jun = test_jun[31]
 #X_jun01, X_jun = chooseFeatures(test_jun)
 X_jun = chooseFeatures(test_jun)
 
@@ -194,9 +199,10 @@ print 'training ok'
 
 
 #XGB
+weight = df[(df[11]==1)].shape[0]/df[(df[11]==0)].shape[0]
 params = {
         "objective": "binary:logistic",
-        "scale_pos_weight": 0.043,#设为正例反例比例
+        #"scale_pos_weight": weight,#设为正例反例比例
         "booster" : "gbtree",
         "eval_metric": "auc",
         "eta": 0.05,
@@ -211,7 +217,7 @@ num_boost_round = 96
 #features = features.values
 target_train = target_train.values
 dtrain = xgb.DMatrix(features,label = target_train)
-gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
+#gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
 
 """
 #XGB TUNE
@@ -267,11 +273,11 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v1_14 balanced.csv",header=None,index=False)
+    df_res.to_csv("v1_15 balanced.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
 
-df_res = giveResultOnTestset()
+#df_res = giveResultOnTestset()
 print 'A result generated.'
 #算auc
 #roc_auc_score(y_true, y_scores)
@@ -297,19 +303,19 @@ def calcAucJun():
 
     print 'predict ok'
     y_predict = pd.DataFrame(y_predict)
-    y_predict.columns=[100]
+    y_predict.columns=[100] #列100为针对六月预测出的结果
     test_jun_new = pd.concat([test_jun, y_predict], axis=1) #把预测出来的6月结果，合并到6月的完整表的最后一列，方便下面的groupby和计算
     
     #v1.5的尝试，在这里增加了一句，只取uid属于上面uid_nojun的来看
     #test_jun_new = test_jun_new[test_jun_new[0].isin(uid_nojun)]
     #test_jun_new = test_jun_new[test_jun_new[1].isin(uid_nojun)]
-    
+    print 'start calc mean auc'
     auc_weight_list = []
     auc_list = []
     total = 0
     for name, group in test_jun_new.groupby(test_jun_new[2]):
-        if group[11].unique().shape[0] != 1:
-            aucvalue = roc_auc_score(group[11].values,group[100].values)
+        if group[31].unique().shape[0] != 1:
+            aucvalue = roc_auc_score(group[31].values,group[100].values) #列31为真实在15天内消费的结果
             auc_weight_list.append(  aucvalue*group.shape[0] )
             auc_list.append(aucvalue)
             total = total + group.shape[0]
