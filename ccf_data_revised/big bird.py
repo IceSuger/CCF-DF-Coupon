@@ -71,7 +71,7 @@ def markTarget(df):
     return df
     
 
-df = readAsChunks_hashead("offline6.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float}).replace("null",np.nan)
+df = readAsChunks_hashead("offline7.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float, '15':int, '16':int, '23':int, '24':float, '25':float}).replace("null",np.nan)
 df.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 df[5] = pd.to_datetime(df[5])
 df[6] = pd.to_datetime(df[6])
@@ -90,7 +90,7 @@ def chooseFeatures(df):
     cols.sort()
     df = df.ix[:,cols]
     #然后选出这些列作为特征，具体含义见FeatureExplaination.txt
-    return df[[0,1]],df[[3,4,8,9,10,12,14,17,20]].fillna(0).values
+    return df[[0,1]],df[[3,4,8,9,10,12,13,14,15,16,17,20,23,24,25]].fillna(0).values
     
 #usrid, merchantid, discountrate, man, jian, approxi_discountrate
 #features = df[[0,1,3,4,8,9,10,12,13,14]].fillna(0).values
@@ -116,7 +116,7 @@ X_jun = np.column_stack((X_jun01,X_jun))
 """
 
 
-
+"""
 #多项式数据变换
 pf = PolynomialFeatures()
 pf.fit(features)
@@ -124,6 +124,7 @@ features = pf.transform(features)
 X_nojun = pf.transform(X_nojun)
 X_jun = pf.transform(X_jun)
 print 'trans to polynomial ok'
+"""
 
 print features.shape
 """
@@ -149,7 +150,7 @@ rf_whole.fit(Xrf,target_train)
 """
 Xrf = features.copy()
 #哑编码 One-hot encode
-enc = OneHotEncoder(categorical_features = np.array([0,1,2,4,5,8]) ,handle_unknown ='ignore' )
+enc = OneHotEncoder(categorical_features = np.array([0,1]) ,handle_unknown ='ignore' )
 enc.fit(features)
 features = enc.transform(features)
 X_nojun = enc.transform(X_nojun)
@@ -192,7 +193,7 @@ y = target_train
 #ab_whole = AdaBoostClassifier(n_estimators = 7)
 #ab_whole.fit(X,y)
 #lr = LogisticRegression(class_weight = 'auto', n_jobs=-1)
-lr = LogisticRegression( n_jobs=-1)
+lr = LogisticRegression( n_jobs=4)
 lr.fit(X,y)
 #ar = AdaBoostRegressor()
 #ar.fit(X,y)
@@ -206,14 +207,14 @@ def giveResultOnTestset():
     df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
     df_res = df_test[[0,2,5]]
     #读预处理过的测试集。
-    df_test = readAsChunks_hashead("test2.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
+    df_test = readAsChunks_hashead("test3.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float, '15':int, '16':int, '23':int, '24':float, '25':float})
     df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
     df_test[4] = df_test[4].fillna(df_test[4].mean())
     print 'test read in ok'
     #选择特征列
     features_test01, features_test = chooseFeatures(df_test)
     
-    features_test = pf.transform(features_test)
+    #features_test = pf.transform(features_test)
     #features_test = sfm.transform(features_test)
     features_test = np.column_stack((features_test01,features_test))
     features_test = enc.transform(features_test)
@@ -228,9 +229,10 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v0_25.csv",header=None,index=False)
+    df_res.to_csv("v0_26 wrong target train.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
+    
 
 df_res = giveResultOnTestset()
 print 'A result generated.'
@@ -265,7 +267,7 @@ def calcAucJun():
 
 aucs = []
 aucs_w = []
-test_jun_new, aucs_w, aucs, total = calcAucJun()
+#test_jun_new, aucs_w, aucs, total = calcAucJun()
 s_w = pd.Series(aucs_w)
 s = pd.Series(aucs)
 print 'Weighted Mean auc is : ',s_w.sum()/total
