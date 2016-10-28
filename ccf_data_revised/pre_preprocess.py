@@ -76,6 +76,20 @@ def generateSup17(df_origin):
     grouped = df.groupby(df[0])
     m = grouped.mean()
     m.to_csv("sup17.csv",header=None,index=True)
+
+def feature18(df_origin):
+    #填入特征18
+    m = pd.read_csv("sup18.csv",dtype={1:float},index_col=0,header=None ) 
+    m.rename(columns={1:18}, inplace=True)
+    merged = pd.merge( df_origin, m, left_on=0, right_index=True, how='left' )
+    
+    return merged
+    
+def generateSup18(df_origin):
+    df = df_origin[[0,11]]
+    grouped = df.groupby(df[0])
+    m = grouped.mean()
+    m.to_csv("sup18.csv",header=None,index=True)
     
 def feature20(df_origin):
     #填入特征20
@@ -92,6 +106,8 @@ def generateSup20(df_origin):
     m.to_csv("sup20.csv",header=None,index=True)
     
 def splitDiscountRateCol(df):
+    #先处理fixed
+    df[3][df[3].str.contains('f').fillna(True)] = '1'
     #把优惠方式那一列切开
     df[8] = 0.0
     df[9] = 0.0
@@ -110,13 +126,14 @@ def splitDiscountRateCol(df):
 
     df[3] = df[3].fillna(1)
     df[3][df[3].str.contains(':').fillna(True)] = '1'
+    
     df[3] = df[3].astype(float)
     
     return df    
 
 def feature30(df):
     df[30] = 0
-    df[30][df[3].str.contains('f').fillna(True)] = '1'
+    df[30][df[3].str.contains('f').fillna(False)] = 1
     return df
 
 def processDate(df):
@@ -292,6 +309,9 @@ df_test.to_csv("test3.csv",index=False)
 
 #下面处理线上训练集
 train_on = readAsChunks_nohead("ccf_online_stage1_train.csv", {0:int, 1:int}).replace("null",np.nan)
+train_on.columns = [0,1,4,2,3,5,6]
+df = feature30(train_on.copy())
+df = splitDiscountRateCol(df)
 
 
 

@@ -130,7 +130,9 @@ def chooseFeatures(df):
     df = df.ix[:,cols]
     #然后选出这些列作为特征，具体含义见FeatureExplaination.txt
     #return df[[0,1]],df[[3,4,8,9,10,12,14,17,20]] #.fillna(0).values
-    return df[[0,1,3,4,8,9,10,12,13,14,15,16,17,20,23,24,25]]
+    
+    return df[[1,3,8,9,10,12,14,15,16,17,20,23,24,25]] #根据fscore，从下面这行里选出的比较重要的特征
+    #return df[[0,1,3,4,8,9,10,12,13,14,15,16,17,20,23,24,25]]
     
 #features01, features = chooseFeatures(df)
 features = chooseFeatures(df)
@@ -217,7 +219,7 @@ num_boost_round = 96
 #features = features.values
 target_train = target_train.values
 dtrain = xgb.DMatrix(features,label = target_train)
-#gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
+gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
 
 """
 #XGB TUNE
@@ -273,11 +275,11 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v1_15 balanced.csv",header=None,index=False)
+    df_res.to_csv("v1_16 unbalanced.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
 
-#df_res = giveResultOnTestset()
+df_res = giveResultOnTestset()
 print 'A result generated.'
 #算auc
 #roc_auc_score(y_true, y_scores)
@@ -286,7 +288,7 @@ print 'A result generated.'
 
 #算6月平均auc
 #v1.5尝试 先把X_nojun的userid统计出来放在uid_nojun这个list中
-uid_nojun = X_nojun[0].unique()
+#uid_nojun = X_nojun[0].unique()
 mid_nojun = X_nojun[1].unique()
 #然后下面算auc的时候，只统计uid属于这个列表的
 def calcAucJun():
@@ -324,7 +326,7 @@ def calcAucJun():
 aucs = []
 aucs_w = []
 total = 1
-test_jun_new, aucs_w, aucs, total = calcAucJun()
+#test_jun_new, aucs_w, aucs, total = calcAucJun()
 s_w = pd.Series(aucs_w)
 s = pd.Series(aucs)
 print 'Weighted Mean auc is : ',s_w.sum()/total
