@@ -6,6 +6,8 @@ Created on Sat Oct 22 15:46:13 2016
 """
 import pandas as pd
 import numpy as np
+import warnings # current version of seaborn generates a bunch of warnings that we'll ignore
+warnings.filterwarnings("ignore")
 
 def readAsChunks_nohead(file_dir, types):
     chunks = []
@@ -43,14 +45,11 @@ def readAsChunks_hashead(file_dir, types):
     #分块将.txt文件读入内存，放到一个 pandas 的 dataFrame 里。块大小（即每次读的行数）为chunk_size
     return df
 
-#train_off.rename(columns={7: 11}, inplace=True)
-#train_on = readAsChunks("ccf_online_stage1_train.csv", {0:int, 1:int, 2:int}).replace("null",np.nan)
-#test = readAsChunks("ccf_offline_stage1_test_revised.csv", {0:int, 1:int}).replace("null",np.nan)
-
 def markTarget(df):
     #正例反例标记
     df[11] = 0
-    df[11][ df[6].notnull() & df[2].notnull()] =1
+    df[11][ ((df[6].notnull()) & (df[2]>0)) ] =1
+    #df[11][ (df[6].notnull()) ] =1
     return df
 
 def fill4(df_origin):
@@ -65,7 +64,7 @@ def fill4(df_origin):
 
 def feature17(df_origin):
     #填入特征17
-    m = pd.read_csv("m.csv",dtype={1:float},index_col=0,header=None ) #sup17曾经叫m
+    m = pd.read_csv("sup17.csv",dtype={1:float},index_col=0,header=None ) #sup17曾经叫m
     m.rename(columns={1:17}, inplace=True)
     merged = pd.merge( df_origin, m, left_on=0, right_index=True, how='left' )
     #merged.rename(columns={'0.0':17}, inplace=True)
@@ -82,7 +81,6 @@ def feature18(df_origin):
     m = pd.read_csv("sup18.csv",dtype={1:float},index_col=0,header=None ) 
     m.rename(columns={1:18}, inplace=True)
     merged = pd.merge( df_origin, m, left_on=0, right_index=True, how='left' )
-    
     return merged
     
 def generateSup18(df_origin):
@@ -90,6 +88,19 @@ def generateSup18(df_origin):
     grouped = df.groupby(df[0])
     m = grouped.mean()
     m.to_csv("sup18.csv",header=None,index=True)
+    
+def feature19(df_origin):
+    #填入特征19
+    m = pd.read_csv("sup19.csv",dtype={1:float},index_col=0,header=None ) 
+    m.rename(columns={1:19}, inplace=True)
+    merged = pd.merge( df_origin, m, left_on=0, right_index=True, how='left' )
+    return merged
+    
+def generateSup19(df_origin):
+    df = df_origin[[0,11]]
+    grouped = df.groupby(df[0])
+    m = grouped.mean()
+    m.to_csv("sup19.csv",header=None,index=True)
     
 def feature20(df_origin):
     #填入特征20
@@ -105,9 +116,37 @@ def generateSup20(df_origin):
     m = grouped.mean()
     m.to_csv("sup20.csv",header=None,index=True)
     
+def feature21(df_origin):
+    #填入特征21
+    m = pd.read_csv("sup21.csv",dtype={1:float},index_col=0,header=None )
+    m.rename(columns={1:21}, inplace=True)
+    merged = pd.merge( df_origin, m, left_on=0, right_index=True, how='left' )
+    merged[21] = merged[21].fillna(0)
+    return merged
+    
+def generateSup21(df_origin):
+    df = df_origin[[0,11]][(df_origin[2]>0)]
+    grouped = df.groupby(df[0])
+    m = grouped.mean()
+    m.to_csv("sup21.csv",header=None,index=True)
+    
+def feature22(df_origin):
+    #填入特征22
+    m = pd.read_csv("sup22.csv",dtype={1:float},index_col=0,header=None )
+    m.rename(columns={1:22}, inplace=True)
+    merged = pd.merge( df_origin, m, left_on=0, right_index=True, how='left' )
+    merged[22] = merged[22].fillna(0)
+    return merged
+    
+def generateSup22(df_origin):
+    df = df_origin[[0,11]][(df_origin[2]>0)]
+    grouped = df.groupby(df[0])
+    m = grouped.mean()
+    m.to_csv("sup22.csv",header=None,index=True)
+    
 def splitDiscountRateCol(df):
     #先处理fixed
-    df[3][df[3].str.contains('f').fillna(True)] = '1'
+    df[3][df[3].str.contains('f').fillna(False)] = '1'
     #把优惠方式那一列切开
     df[8] = 0.0
     df[9] = 0.0
@@ -238,50 +277,55 @@ def feature24and25(df):
     df[25] = (df[23]/df[16]).fillna(0)
     return df
     
-#train_off = readAsChunks("ccf_offline_stage1_train.csv", {0:int, 1:int}) #.replace("null",np.nan)
+"""
+train_off = readAsChunks_nohead("ccf_offline_stage1_train.csv", {0:int, 1:int}).replace("null",np.nan)
 #train_off = readAsChunks_hashead("offline6.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
 #train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 
-#train_off = process5and6(train_off) #feature5,6
+train_off = process5and6(train_off) #feature5,6
 #train_off = feature7(train_off)    #feature7
-#train_off = processDate(train_off) #feaeture14
+train_off = processDate(train_off) #feaeture14
 
 #为了计算当前商户在训练集中出现的频率：当前商户次数/训练集长度，在这里计算一下这个频率，存入sup(辅助)
 #放在函数外面，是为了训练集、测试集都可以用它来merge
-#sup_for_feature12 = pd.DataFrame(train_off[1].value_counts()/train_off.shape[0] *100) #百分比例
-#size = train_off[(train_off[2]>0)].shape[0]
-#sup_for_feature13 = pd.DataFrame(train_off[1].value_counts()/size *100) #百分比例
+sup_for_feature12 = pd.DataFrame(train_off[1].value_counts()/train_off.shape[0] *100) #百分比例
+size = train_off[(train_off[2]>0)].shape[0]
+sup_for_feature13 = pd.DataFrame(train_off[1].value_counts()/size *100) #百分比例
 
-#train_off = addFreqOfMerchant(train_off,sup_for_feature12, sup_for_feature13) #feature12,13
-#df = markTarget(train_off) #feature/target 11
+train_off = addFreqOfMerchant(train_off,sup_for_feature12, sup_for_feature13) #feature12,13
+df = markTarget(train_off) #feature/target 11
 #df = fill4(df)     #feature4
 
 print 'targeted'
 #save = feature17(df)   #feature17
-#df = splitDiscountRateCol(train_off)   #feature3,8,9,10
-"""
+df = splitDiscountRateCol(train_off)   #feature3,8,9,10
+
 generateSup15(df)    #先生成特征??的辅助文件
 generateSup16(df)
+generateSup17(df)
+generateSup20(df)
 generateSup23(df)
 print 'sups generated'
 df = feature15(df)   #feature??
 df = feature16(df) 
+df = feature17(df)
+df = feature20(df)
 df = feature23(df) 
 save = feature24and25(df)
 
 #处理一下col7.有必要吗？其实没有。反正后面也不用它。算了，不处理了。
 
 
-save.to_csv("offline7.csv",index=False)
+save.to_csv("offline10.csv",index=False)
 print 'saved'
 """
 
 
-
-#下面处理测试集
-#df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
-#df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 """
+#下面处理测试集
+df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
+#df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+
 df_test = feature17(df_test)
 print '17 ok'
 df_test = feature20(df_test)
@@ -290,28 +334,58 @@ df_test[5] = pd.to_datetime(df_test[5],format='%Y%m%d')
 df_test = addFreqOfMerchant(df_test, sup_for_feature12, sup_for_feature13)
 df_test = splitDiscountRateCol(df_test)
 df_test = processDate(df_test)
-df_test = df_test.fillna(df_test.mean()) #下一次尝试[17:13]，对于4的缺失值单独处理
-df_test.to_csv("test2.csv",index=False)
+#df_test = df_test.fillna(df_test.mean()) #下一次尝试[17:13]，对于4的缺失值单独处理
 """
 
-"""
-df_test = readAsChunks_hashead("test2.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
+
+df_test = readAsChunks_hashead("test10.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
 df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
-    
 
+
+"""
 df_test = feature15(df_test)   #feature??
 df_test = feature16(df_test) 
 df_test = feature23(df_test) 
 df_test = feature24and25(df_test)
-df_test.to_csv("test3.csv",index=False)
 """
 
+df_test = feature18(df_test) 
+df_test = feature21(df_test) 
+df_test = feature19(df_test) 
+df_test = feature22(df_test)
+df_test.to_csv("test12.csv",index=False)
 
+
+
+"""
 #下面处理线上训练集
 train_on = readAsChunks_nohead("ccf_online_stage1_train.csv", {0:int, 1:int}).replace("null",np.nan)
 train_on.columns = [0,1,4,2,3,5,6]
-df = feature30(train_on.copy())
+df = feature30(train_on)
 df = splitDiscountRateCol(df)
+df = markTarget(df) #feature/target 11
 
+generateSup18(df)
+generateSup21(df)
 
+df = feature18(df)
+df = feature21(df)
 
+train_off = readAsChunks_hashead("offline10.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+train_off = markTarget(train_off) #feature/target 11
+
+df_off = train_off
+df_off = feature18(df_off)
+df_off = feature21(df_off)
+
+#下面把线上线下的表连起来，为了算字段19和22
+df_onoff = pd.concat([df,train_off],axis=0)
+
+df_onoff = df_onoff[[0,1,2,11]]
+generateSup19(df_onoff)
+generateSup22(df_onoff)
+df_off = feature19(df_off)
+df_off = feature22(df_off)
+df_off.to_csv("offline12.csv",index=False)
+"""

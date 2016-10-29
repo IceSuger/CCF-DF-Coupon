@@ -28,6 +28,8 @@ from sklearn.preprocessing import RobustScaler
 import xgboost as xgb
 from xgboost.sklearn import XGBClassifier
 from sklearn.grid_search import GridSearchCV   
+import warnings # current version of seaborn generates a bunch of warnings that we'll ignore
+warnings.filterwarnings("ignore")
 
 #运行之前，先把下面这两行拷到console里运行一下
 #import matplotlib.pylab as plt
@@ -105,8 +107,9 @@ def markTarget(df):
     #正例反例标记
     df[11] = 0
     #df[11][ (df[6].notnull() & df[2].notnull() )& (df[7].astype('timedelta64[D]').fillna(200).astype('int')<16)] = 1
-    df[11][ df[6].notnull() & df[2].notnull()] =1
+    #df[11][ df[6].notnull() & df[2].notnull()] =1
     #df[11][ ( (df[6].notnull()) & (df[2]>0) )] =1
+    df[11][ df[6].notnull()] =1
     
     df[7] = df[6]-df[5]
     df[31] = 0
@@ -114,7 +117,7 @@ def markTarget(df):
     return df
     
 
-df = readAsChunks_hashead("offline7.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float, '15':int, '16':int, '23':int, '24':float, '25':float}).replace("null",np.nan)
+df = readAsChunks_hashead("offline12.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float,'18':float,'19':float, '20':float,'21':float,'22':float, '15':int, '16':int, '23':int, '24':float, '25':float}).replace("null",np.nan)
 df.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 df[5] = pd.to_datetime(df[5])
 df[6] = pd.to_datetime(df[6])
@@ -131,8 +134,8 @@ def chooseFeatures(df):
     #然后选出这些列作为特征，具体含义见FeatureExplaination.txt
     #return df[[0,1]],df[[3,4,8,9,10,12,14,17,20]] #.fillna(0).values
     
-    return df[[1,3,8,9,10,12,14,15,16,17,20,23,24,25]] #根据fscore，从下面这行里选出的比较重要的特征
-    #return df[[0,1,3,4,8,9,10,12,13,14,15,16,17,20,23,24,25]]
+    #return df[[1,3,8,9,10,12,14,15,16,17,20,23,24,25]] #根据fscore，从下面这行里选出的比较重要的特征
+    return df[[0,1,3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25]]
     
 #features01, features = chooseFeatures(df)
 features = chooseFeatures(df)
@@ -187,6 +190,15 @@ X_jun = scaler.transform(X_jun)
 print 'scale ok'
 """
 
+"""
+#尝试哑编码一波？我猜会死机。
+#pf = PolynomialFeatures()
+pf.fit(features)
+features = pf.transform(features)
+X_nojun = pf.transform(X_nojun)
+X_jun = pf.transform(X_jun)
+print 'poly ok'
+"""
 
 print 'preprocess ok'
 
@@ -249,9 +261,9 @@ def giveResultOnTestset():
     df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
     df_res = df_test[[0,2,5]]
     #读预处理过的测试集。
-    df_test = readAsChunks_hashead("test3.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float, '15':int, '16':int, '23':int, '24':float, '25':float})
+    df_test = readAsChunks_hashead("test12.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float,  '17':float,'18':float,'19':float, '20':float,'21':float,'22':float,'15':int, '16':int, '23':int, '24':float, '25':float})
     df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
-    df_test[4] = df_test[4].fillna(df_test[4].mean())
+    #df_test[4] = df_test[4].fillna(df_test[4].mean())
     print 'test read in ok'
     #选择特征列
     #features_test01, features_test = chooseFeatures(df_test)
@@ -275,7 +287,7 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v1_16 unbalanced.csv",header=None,index=False)
+    df_res.to_csv("v2_6 no13 with18 19 21 22_unbalance_online right mark.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
 
@@ -326,7 +338,7 @@ def calcAucJun():
 aucs = []
 aucs_w = []
 total = 1
-#test_jun_new, aucs_w, aucs, total = calcAucJun()
+test_jun_new, aucs_w, aucs, total = calcAucJun()
 s_w = pd.Series(aucs_w)
 s = pd.Series(aucs)
 print 'Weighted Mean auc is : ',s_w.sum()/total
