@@ -322,8 +322,14 @@ def generateSup29(df_origin):
 
 
 #train_off = readAsChunks_nohead("ccf_offline_stage1_train.csv", {0:int, 1:int}).replace("null",np.nan)
-train_off = readAsChunks_hashead("offline12.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
-train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+#train_off = readAsChunks_hashead("offline12.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+#train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+
+df13 = readAsChunks_hashead("offline13.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+df13.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+df7 = readAsChunks_hashead("offline7.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+df7.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+
 """
 train_off = process5and6(train_off) #feature5,6
 #train_off = feature7(train_off)    #feature7
@@ -358,6 +364,7 @@ save = feature24and25(df)
 
 #处理一下col7.有必要吗？其实没有。反正后面也不用它。算了，不处理了。
 """
+"""
 df = markTarget(train_off) #feature/target 11
 
 generateSup26(df)
@@ -370,7 +377,7 @@ df = feature29(df)
 save = df
 save.to_csv("offline13.csv",index=False)
 print 'saved'
-
+"""
 
 
 """
@@ -389,10 +396,10 @@ df_test = processDate(df_test)
 #df_test = df_test.fillna(df_test.mean()) #下一次尝试[17:13]，对于4的缺失值单独处理
 """
 
-
+"""
 df_test = readAsChunks_hashead("test12.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
 df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
-
+"""
 
 """
 df_test = feature15(df_test)   #feature??
@@ -400,13 +407,13 @@ df_test = feature16(df_test)
 df_test = feature23(df_test) 
 df_test = feature24and25(df_test)
 """
-
+"""
 df_test = feature26(df_test) 
 df_test = feature27(df_test) 
 df_test = feature28(df_test) 
 df_test = feature29(df_test)
 df_test.to_csv("test13.csv",index=False)
-
+"""
 
 
 """

@@ -137,7 +137,7 @@ def chooseFeatures(df):
     #return df[[0,1]],df[[3,4,8,9,10,12,14,17,20]] #.fillna(0).values
     
     #return df[[1,3,8,9,10,12,14,15,16,17,20,23,24,25]] #根据fscore，从下面这行里选出的比较重要的特征
-    return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25,26,27,28,29]]
+    return df[[0,1,3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]]
     
 #features01, features = chooseFeatures(df)
 features = chooseFeatures(df)
@@ -289,7 +289,7 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v3_3 no13 18 19 21 22_add 26 27 28 29_fill14with35.csv",header=None,index=False)
+    df_res.to_csv("v3_5 with13 18 19 21 22_add 26 27 28 29_fill14with35_n96csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
 
