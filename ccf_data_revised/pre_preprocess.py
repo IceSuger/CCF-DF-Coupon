@@ -48,8 +48,8 @@ def readAsChunks_hashead(file_dir, types):
 def markTarget(df):
     #正例反例标记
     df[11] = 0
-    df[11][ ((df[6].notnull()) & (df[2]>0)) ] =1
-    #df[11][ (df[6].notnull()) ] =1
+    #df[11][ ((df[6].notnull()) & (df[2]>0)) ] =1
+    df[11][ (df[6].notnull()) ] =1
     return df
 
 def fill4(df_origin):
@@ -277,11 +277,54 @@ def feature24and25(df):
     df[25] = (df[23]/df[16]).fillna(0)
     return df
     
-"""
-train_off = readAsChunks_nohead("ccf_offline_stage1_train.csv", {0:int, 1:int}).replace("null",np.nan)
-#train_off = readAsChunks_hashead("offline6.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
-#train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+def feature26(df_origin):
+    #填入特征26(能用字段11来算，是基于错误标记——把消费了的都标记为正例了！)
+    m = pd.read_csv("sup26.csv",dtype={1:float},index_col=0,header=None ) 
+    m.rename(columns={1:26}, inplace=True)
+    merged = pd.merge( df_origin, m, left_on=1, right_index=True, how='left' )
+    return merged
+    
+def generateSup26(df_origin):
+    df = df_origin[[1,11]][ ( (df_origin[11]==1) & (df_origin[2]>0) ) ]
+    grouped = df.groupby(df[1])
+    m = grouped.sum()
+    m.to_csv("sup26.csv",header=None,index=True)
+    
+def feature27(df_origin):
+    #填入特征27(能用字段11来算，是基于错误标记——把消费了的都标记为正例了！)
+    m = pd.read_csv("sup27.csv",dtype={1:float},index_col=0,header=None ) 
+    m.rename(columns={1:27}, inplace=True)
+    merged = pd.merge( df_origin, m, left_on=1, right_index=True, how='left' )
+    return merged
+    
+def generateSup27(df_origin):
+    df = df_origin[[1,11]]
+    grouped = df.groupby(df[1])
+    m = grouped.sum()
+    m.to_csv("sup27.csv",header=None,index=True)
 
+def feature28(df):
+    df[28] = (df[26]/df[27]).fillna(0)
+    return df
+    
+def feature29(df_origin):
+    #填入特征29(能用字段11来算，是基于错误标记——把消费了的都标记为正例了！)
+    m = pd.read_csv("sup29.csv",dtype={1:float},index_col=0,header=None ) 
+    m.rename(columns={1:29}, inplace=True)
+    merged = pd.merge( df_origin, m, left_on=1, right_index=True, how='left' )
+    return merged
+    
+def generateSup29(df_origin):
+    df = df_origin[[0,1,11]][ (df_origin[11]==1) ]
+    grouped = df.groupby(df[1])
+    m = grouped.agg({0: lambda x:x.unique().shape[0]})
+    m.to_csv("sup29.csv",header=None,index=True)
+
+
+#train_off = readAsChunks_nohead("ccf_offline_stage1_train.csv", {0:int, 1:int}).replace("null",np.nan)
+train_off = readAsChunks_hashead("offline12.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+"""
 train_off = process5and6(train_off) #feature5,6
 #train_off = feature7(train_off)    #feature7
 train_off = processDate(train_off) #feaeture14
@@ -314,11 +357,20 @@ df = feature23(df)
 save = feature24and25(df)
 
 #处理一下col7.有必要吗？其实没有。反正后面也不用它。算了，不处理了。
-
-
-save.to_csv("offline10.csv",index=False)
-print 'saved'
 """
+df = markTarget(train_off) #feature/target 11
+
+generateSup26(df)
+generateSup27(df)
+generateSup29(df)
+df = feature26(df)
+df = feature27(df)
+df = feature28(df)
+df = feature29(df) 
+save = df
+save.to_csv("offline13.csv",index=False)
+print 'saved'
+
 
 
 """
@@ -338,7 +390,7 @@ df_test = processDate(df_test)
 """
 
 
-df_test = readAsChunks_hashead("test10.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
+df_test = readAsChunks_hashead("test12.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
 df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 
 
@@ -349,11 +401,11 @@ df_test = feature23(df_test)
 df_test = feature24and25(df_test)
 """
 
-df_test = feature18(df_test) 
-df_test = feature21(df_test) 
-df_test = feature19(df_test) 
-df_test = feature22(df_test)
-df_test.to_csv("test12.csv",index=False)
+df_test = feature26(df_test) 
+df_test = feature27(df_test) 
+df_test = feature28(df_test) 
+df_test = feature29(df_test)
+df_test.to_csv("test13.csv",index=False)
 
 
 
