@@ -471,3 +471,40 @@ df_off = feature19(df_off)
 df_off = feature22(df_off)
 df_off.to_csv("offline12.csv",index=False)
 """
+def sortcols(df):
+    cols = list(df)
+    cols.sort()
+    return df.ix[:,cols]
+    
+
+#下面的部分，是在v3.5左右，发现了结果和历史最高分差别明显，怀疑是特征出了问题。于是对比两个版本的预处理结果，发现特征17和23出了大问题。
+df14 = readAsChunks_hashead("offline14.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+df14.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+df7 = readAsChunks_hashead("offline7.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+df7.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+df14 = sortcols(df14)
+df7 = sortcols(df7)
+
+"""
+df7 = df7[[0,1,2,3,4,17,8,9,10,14,12,13,11,20,15,16,23,24,25]]
+df14 = df14[[0,1,2,3,4,17,8,9,10,14,12,13,11,20,15,16,23,24,25]]
+
+delta = df14 - df7
+"""
+
+#老子是真没办法了，直接把好使的offline7里的某些字段拷过来放到新特征矩阵里吧，不重新处理了，他妈的没法再现了。
+#df15 = pd.concat([df14.drop([14,17,23,24,25],axis=1),df7[[14,17,23,24,25]]],axis=1)
+#df15.to_csv("offline15.csv",index=False)
+
+#下面把测试集也处理出来一个test15版本
+test14 = readAsChunks_hashead("test14.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
+test14.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+test7 = readAsChunks_hashead("test3.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
+test7.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+test14 = sortcols(test14)
+test7 = sortcols(test7)
+
+test15 = pd.concat([test14.drop([14,17,23,24,25],axis=1),test7[[14,17,23,24,25]]],axis=1)
+test15.to_csv("test15.csv",index=False)
+
+

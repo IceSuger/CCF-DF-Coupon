@@ -117,7 +117,7 @@ def markTarget(df):
     return df
     
 
-df = readAsChunks_hashead("offline14.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float,'18':float,'19':float, '20':float,'21':float,'22':float, '15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float}).replace("null",np.nan)
+df = readAsChunks_hashead("offline15.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float,'18':float,'19':float, '20':float,'21':float,'22':float, '15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float}).replace("null",np.nan)
 df.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 df[5] = pd.to_datetime(df[5])
 df[6] = pd.to_datetime(df[6])
@@ -138,9 +138,9 @@ def chooseFeatures(df):
     
     #return df[[1,3,8,9,10,12,14,15,16,17,20,23,24,25]] #根据fscore，从下面这行里选出的比较重要的特征
     #v3.8的特征：    
-    #return df[[0,1,3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]]
+    return df[[0,1,3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]]
     #v1.11的特征：
-    return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
+    #return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
     
 #features01, features = chooseFeatures(df)
 features = chooseFeatures(df)
@@ -266,7 +266,7 @@ def giveResultOnTestset():
     df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
     df_res = df_test[[0,2,5]]
     #读预处理过的测试集。
-    df_test = readAsChunks_hashead("test14.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float,  '17':float,'18':float,'19':float, '20':float,'21':float,'22':float,'15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float})
+    df_test = readAsChunks_hashead("test15.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float,  '17':float,'18':float,'19':float, '20':float,'21':float,'22':float,'15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float})
     df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
     #df_test[4] = df_test[4].fillna(df_test[4].mean())
     print 'test read in ok'
@@ -292,7 +292,7 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v3_9 _n96.csv",header=None,index=False)
+    df_res.to_csv("v3_10 using offline15 & test15 _n 150.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
 
