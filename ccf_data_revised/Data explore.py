@@ -74,3 +74,23 @@ intersec_on_t_usr = np.intersect1d( on_usrid, t_usrid)
 
 
 #sup_17 = pd.DataFrame( df[0].apply(lambda x:df[(df[0]==x & df[11]==1)].shape[0])/df[0].apply(lambda x:df[df[0]==x].shape[0]) )
+"""
+#下面的部分，是在v3.5左右，发现了结果和历史最高分差别明显，怀疑是特征出了问题。于是对比两个版本的预处理结果，发现特征17和23出了大问题。
+df13 = readAsChunks_hashead("offline13.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+df13.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+df7 = readAsChunks_hashead("offline7.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+df7.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+
+df7 = df7[[0,1,2,3,4,17,8,9,10,14,12,13,11,20,15,16,23,24,25]]
+df13 = df13[[0,1,2,3,4,17,8,9,10,14,12,13,11,20,15,16,23,24,25]]
+delta = df13 - df7
+delta.describe()#发现17和23两个字段明显不同，13版本的值普遍比7版本的要大
+df7[17]
+df13[17]
+df13[23]
+df7[23]
+delta[23].tail()
+delta[23].value_counts()
+df13[24]
+df13[24].value_counts()
+"""

@@ -48,8 +48,8 @@ def readAsChunks_hashead(file_dir, types):
 def markTarget(df):
     #正例反例标记
     df[11] = 0
-    #df[11][ ((df[6].notnull()) & (df[2]>0)) ] =1
-    df[11][ (df[6].notnull()) ] =1
+    df[11][ ((df[6].notnull()) & (df[2]>0)) ] =1
+    #df[11][ (df[6].notnull()) ] =1
     return df
 
 def fill4(df_origin):
@@ -63,7 +63,7 @@ def fill4(df_origin):
     return df_origin #, sup4
 
 def feature17(df_origin):
-    #填入特征17
+    #填入特征17（经过版本v3.1~v3.5的探索，发现这个特征，需要用正确标记——即用券消费才为正例的——来处理，效果才好）
     m = pd.read_csv("sup17.csv",dtype={1:float},index_col=0,header=None ) #sup17曾经叫m
     m.rename(columns={1:17}, inplace=True)
     merged = pd.merge( df_origin, m, left_on=0, right_index=True, how='left' )
@@ -242,7 +242,7 @@ def generateSup23(df_origin):
     #用户在该店用券消费次数
     df = df_origin.copy()
     df[150] = 0
-    df[150][ (df[6].notnull() & df[2]>0) ] =1
+    df[150][ ((df[6].notnull()) & (df[2]>0) )] =1
     df = df[[0,1,150]]
     grouped = df.groupby([0,1], as_index=False)
     m = grouped.sum()
@@ -322,13 +322,30 @@ def generateSup29(df_origin):
 
 
 #train_off = readAsChunks_nohead("ccf_offline_stage1_train.csv", {0:int, 1:int}).replace("null",np.nan)
-#train_off = readAsChunks_hashead("offline12.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+#train_off = readAsChunks_hashead("offline13.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
 #train_off.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 
-df13 = readAsChunks_hashead("offline13.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
-df13.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
-df7 = readAsChunks_hashead("offline7.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
-df7.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+"""
+off13 = readAsChunks_hashead("offline13.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float}) #.replace("null",np.nan)
+off13.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+
+off13 = off13[[0,1,2,3,4,5,6,8,9,10,14,12,13,20,15,16,18,19,21,22]]
+"""
+"""
+df = markTarget(train_off) #feature/target 11
+#off13 = markTarget(off13)
+
+generateSup17(df)
+generateSup23(df)
+"""
+"""
+off13 = feature17(off13)
+off13 = feature23(off13) 
+save = feature24and25(off13)
+save.to_csv("offline14.csv",index=False)
+"""
+
+
 
 """
 train_off = process5and6(train_off) #feature5,6
@@ -397,8 +414,14 @@ df_test = processDate(df_test)
 """
 
 """
-df_test = readAsChunks_hashead("test12.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
+df_test = readAsChunks_hashead("test13.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float, '20':float})
 df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+df_test = df_test[[0,1,2,3,4,5,8,9,10,14,12,13,20,15,16,18,19,21,22]]
+
+df_test = feature17(df_test)
+df_test = feature23(df_test) 
+df_test = feature24and25(df_test)
+df_test.to_csv("test14.csv",index=False)
 """
 
 """
