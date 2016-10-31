@@ -35,7 +35,6 @@ warnings.filterwarnings("ignore")
 from matplotlib.pylab import rcParams
 rcParams['figure.figsize'] = 10, 5
 
-
 #pd.set_option('display.float_format', lambda x: '%.13f' % x) #为了直观的显示数字，且为了输出提交文件的格式不出问题，不采用科学计数法
 
 def readAsChunks_nohead(file_dir, types):
@@ -115,7 +114,7 @@ def markTarget(df):
     return df
     
 
-df = readAsChunks_hashead("offline14.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float,'18':float,'19':float, '20':float,'21':float,'22':float, '15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float}).replace("null",np.nan)
+df = readAsChunks_hashead("offline16.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float,'18':float,'19':float, '20':float,'21':float,'22':float, '15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float}).replace("null",np.nan)
 df.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 df[5] = pd.to_datetime(df[5])
 df[6] = pd.to_datetime(df[6])
@@ -138,7 +137,10 @@ def chooseFeatures(df):
     #v3.8的特征：    
     #return df[[0,1,3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]]
     #v1.11的特征：
-    return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
+    #return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
+    #v5.0的特征：    
+    return df[[3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]].fillna(0)
+    
     
 #features01, features = chooseFeatures(df)
 features = chooseFeatures(df)
@@ -171,7 +173,7 @@ Xrf = features.copy()
 rf_whole = RandomForestClassifier( max_depth = 10, min_samples_split=2, n_estimators = 100, random_state = 1, n_jobs=-1) 
 rf_whole.fit(Xrf,target_train)
 """
-Xrf = features.copy()
+
 """
 #哑编码 One-hot encode
 enc = OneHotEncoder(categorical_features = np.array([0,1,2,4,5,8]) ,handle_unknown ='ignore' )
@@ -180,7 +182,7 @@ features = enc.transform(features)
 X_nojun = enc.transform(X_nojun)
 X_jun = enc.transform(X_jun)
 """
-print 'onehot ok', features.shape
+
 
 """
 #归一化/标准化
@@ -192,71 +194,58 @@ X_nojun = scaler.transform(X_nojun)
 X_jun = scaler.transform(X_jun)
 print 'scale ok'
 """
-
 """
-#尝试poly一波？我猜会死机。
-#pf = PolynomialFeatures()
+#尝试poly一波？我猜会死机。果然死机了，22->276维特征.
+pf = PolynomialFeatures()
 pf.fit(features)
 features = pf.transform(features)
-X_nojun = pf.transform(X_nojun)
-X_jun = pf.transform(X_jun)
 print 'poly ok'
 """
+#标准化
+scaler = MinMaxScaler()
+scaler.fit(features)
+features = scaler.transform(features)
+print 'scale ok'
 
-print 'preprocess ok'
-
+print features.shape
 
 #训练模型
 X = features
 y = target_train
 
-#model = lr
+#送进LR训练
+lr = LogisticRegression(n_jobs=4)
+lr.fit(X, y)
 print 'training ok'
 
+def giveResultOnTestset_LR():
+     #读测试数据。这里是题目给的原始数据，读它是为了保证提交结果的前三列格式不出问题
+    df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
+    df_res = df_test[[0,2,5]]
+    #读预处理过的测试集。
+    df_test = readAsChunks_hashead("test16.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float,  '17':float,'18':float,'19':float, '20':float,'21':float,'22':float,'15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float})
+    df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+    df_test[4] = df_test[4].fillna(df_test[4].mean())
+    print 'test read in ok'
+    #选择特征列
+    features_test = chooseFeatures(df_test) #.values
+    #一顿预处理
+    #features_test = pf.transform(features_test)
+    features_test = scaler.transform(features_test)
+    #LR
+    target_test = lr.predict_proba(features_test)[:,1]
+    
+    #保存结果
+    df_res[4] = pd.DataFrame(target_test)
+    #不想要科学计数法的结果
+    df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
+    df_res.to_csv("v5_0 lr no poly_no feature0 1.csv",header=None,index=False)
+    return df_res
 
-#XGB
-weight = df[(df[11]==1)].shape[0]/df[(df[11]==0)].shape[0]
-params = {
-        "objective": "binary:logistic",
-        #"scale_pos_weight": weight,#设为正例反例比例
-        "booster" : "gbtree",
-        "eval_metric": "auc",
-        "eta": 0.05,
-        "max_depth": 5,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
-        "silent": 0,
-        "nthread":4,
-        "seed": 27,
-    }
-num_boost_round = 96
-#features = features.values
-target_train = target_train.values
-dtrain = xgb.DMatrix(features,label = target_train)
-#gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
-
-"""
-#XGB TUNE
-#Choose all predictors except target & IDcols
-#predictors = [x for x in train.columns if x not in [11]]
-xgb1 = XGBClassifier(
-     learning_rate =0.05,
-     n_estimators=1000, #好像在eta 0.1时测出来是最好为417
-     max_depth=7,
-     min_child_weight=1,
-     gamma=0,
-     subsample=0.8,
-     colsample_bytree=0.8,
-     objective= 'binary:logistic',
-     nthread=4,
-     scale_pos_weight=1,
-     seed=27)
-modelfit(xgb1, X,y)
-"""
-
-print 'xgb train ok'
-
+df_res = giveResultOnTestset_LR()
+    
+"""  
 def giveResultOnTestset():
     #读测试数据。这里是题目给的原始数据，读它是为了保证提交结果的前三列格式不出问题
     df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
@@ -291,7 +280,7 @@ def giveResultOnTestset():
     df_res.to_csv("v3_14 using offline16 & test16 _with18 19 21 22 26 27 28 29_n 100_depth6.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
-
+"""
 #df_res = giveResultOnTestset()
 print 'A result generated.'
 #算auc
@@ -340,7 +329,7 @@ def calcAucJun():
 aucs = []
 aucs_w = []
 total = 1
-test_jun_new, aucs_w, aucs, total = calcAucJun()
+#test_jun_new, aucs_w, aucs, total = calcAucJun()
 s_w = pd.Series(aucs_w)
 s = pd.Series(aucs)
 print 'Weighted Mean auc is : ',s_w.sum()/total
