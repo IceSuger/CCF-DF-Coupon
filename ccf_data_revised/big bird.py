@@ -35,7 +35,7 @@ warnings.filterwarnings("ignore")
 #import matplotlib.pylab as plt
 #%matplotlib inline
 from matplotlib.pylab import rcParams
-rcParams['figure.figsize'] = 12, 4
+rcParams['figure.figsize'] = 10, 5
 
 
 #pd.set_option('display.float_format', lambda x: '%.13f' % x) #为了直观的显示数字，且为了输出提交文件的格式不出问题，不采用科学计数法
@@ -225,14 +225,14 @@ params = {
         "booster" : "gbtree",
         "eval_metric": "auc",
         "eta": 0.05,
-        "max_depth": 5,
+        "max_depth": 6,
         "subsample": 0.8,
         "colsample_bytree": 0.8,
         "silent": 0,
         "nthread":4,
         "seed": 27,
     }
-num_boost_round = 150
+num_boost_round = 100
 #features = features.values
 target_train = target_train.values
 dtrain = xgb.DMatrix(features,label = target_train)
@@ -292,7 +292,7 @@ def giveResultOnTestset():
     #Series(np.random.randn(3)).apply(lambda x: '%.3f' % x)
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v3_12 using offline16 & test16 _with18 19 21 22 26 27 28 29_n 150.csv",header=None,index=False)
+    df_res.to_csv("v3_14 using offline16 & test16 _with18 19 21 22 26 27 28 29_n 100_depth6.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
 
@@ -350,3 +350,10 @@ print 'Weighted Mean auc is : ',s_w.sum()/total
 print 'Direct Mean auc is: ',s.mean()
 #画图，看feature importances
 #pd.Series(gbm.get_fscore()).sort_values().plot(kind='barh',title='Feature importance')
+
+"""
+res11 = pd.read_csv("v1_11 no13_n is 96.csv",header=None)
+comp = pd.concat([res11[3],df_res[4]],axis=1)
+comp
+"""
+
