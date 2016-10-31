@@ -31,9 +31,7 @@ from sklearn.grid_search import GridSearchCV
 import warnings # current version of seaborn generates a bunch of warnings that we'll ignore
 warnings.filterwarnings("ignore")
 
-#运行之前，先把下面这两行拷到console里运行一下
-#import matplotlib.pylab as plt
-#%matplotlib inline
+
 from matplotlib.pylab import rcParams
 rcParams['figure.figsize'] = 10, 5
 
@@ -117,7 +115,7 @@ def markTarget(df):
     return df
     
 
-df = readAsChunks_hashead("offline16.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float,'18':float,'19':float, '20':float,'21':float,'22':float, '15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float}).replace("null",np.nan)
+df = readAsChunks_hashead("offline14.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float,'18':float,'19':float, '20':float,'21':float,'22':float, '15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float}).replace("null",np.nan)
 df.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 df[5] = pd.to_datetime(df[5])
 df[6] = pd.to_datetime(df[6])
@@ -138,9 +136,9 @@ def chooseFeatures(df):
     
     #return df[[1,3,8,9,10,12,14,15,16,17,20,23,24,25]] #根据fscore，从下面这行里选出的比较重要的特征
     #v3.8的特征：    
-    return df[[0,1,3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]]
+    #return df[[0,1,3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]]
     #v1.11的特征：
-    #return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
+    return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
     
 #features01, features = chooseFeatures(df)
 features = chooseFeatures(df)
@@ -196,7 +194,7 @@ print 'scale ok'
 """
 
 """
-#尝试哑编码一波？我猜会死机。
+#尝试poly一波？我猜会死机。
 #pf = PolynomialFeatures()
 pf.fit(features)
 features = pf.transform(features)
@@ -225,18 +223,18 @@ params = {
         "booster" : "gbtree",
         "eval_metric": "auc",
         "eta": 0.05,
-        "max_depth": 6,
+        "max_depth": 5,
         "subsample": 0.8,
         "colsample_bytree": 0.8,
         "silent": 0,
         "nthread":4,
         "seed": 27,
     }
-num_boost_round = 100
+num_boost_round = 96
 #features = features.values
 target_train = target_train.values
 dtrain = xgb.DMatrix(features,label = target_train)
-gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
+#gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
 
 """
 #XGB TUNE
@@ -256,8 +254,6 @@ xgb1 = XGBClassifier(
      seed=27)
 modelfit(xgb1, X,y)
 """
-
-
 
 print 'xgb train ok'
 
@@ -296,7 +292,7 @@ def giveResultOnTestset():
     #print df_res[4].value_counts()
     return df_res
 
-df_res = giveResultOnTestset()
+#df_res = giveResultOnTestset()
 print 'A result generated.'
 #算auc
 #roc_auc_score(y_true, y_scores)
@@ -344,7 +340,7 @@ def calcAucJun():
 aucs = []
 aucs_w = []
 total = 1
-#test_jun_new, aucs_w, aucs, total = calcAucJun()
+test_jun_new, aucs_w, aucs, total = calcAucJun()
 s_w = pd.Series(aucs_w)
 s = pd.Series(aucs)
 print 'Weighted Mean auc is : ',s_w.sum()/total
@@ -357,4 +353,59 @@ res11 = pd.read_csv("v1_11 no13_n is 96.csv",header=None)
 comp = pd.concat([res11[3],df_res[4]],axis=1)
 comp
 """
+"""
+def ceshi():
+    #读测试数据。这里是题目给的原始数据，读它是为了保证提交结果的前三列格式不出问题
+    df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
+    df_res = df_test[[0,2,5]]
+    #读预处理过的测试集。
+    df_test = readAsChunks_hashead("test16.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float,  '17':float,'18':float,'19':float, '20':float,'21':float,'22':float,'15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float})
+    df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+    df_test[4] = df_test[4].fillna(df_test[4].mean())
+    print 'test read in ok'
+    #选择特征列
+    #features_test01, features_test = chooseFeatures(df_test)
+    features_test = chooseFeatures(df_test) #.values
+    return features_test
+"""
 
+"""
+def gentest_jun_new():
+    #xgb
+    dtrain = xgb.DMatrix(X_nojun,label = y_nojun)
+    gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
+    
+    print 'train ok'
+    #y_predict = model_nojun.predict_proba(X_jun)[:,1]
+    y_predict = gbm.predict(xgb.DMatrix(X_jun), ntree_limit=gbm.best_iteration)
+
+    print 'predict ok'
+    y_predict = pd.DataFrame(y_predict)
+    y_predict.columns=[100] #列100为针对六月预测出的结果
+    test_jun_new = pd.concat([test_jun, y_predict], axis=1) #把预测出来的6月结果，合并到6月的完整表的最后一列，方便下面的groupby和计算
+    
+    #v1.5的尝试，在这里增加了一句，只取uid属于上面uid_nojun的来看
+    #v3.15尝试同时限制这两者，让碧雨把历史上的几个版本跑一遍，看看趋势。
+    test_jun_new = test_jun_new[test_jun_new[0].isin(uid_nojun)]
+    test_jun_new = test_jun_new[test_jun_new[1].isin(uid_nojun)]
+    return test_jun_new
+    
+test_jun_new = gentest_jun_new()
+    
+def onlycalc(test_jun_new):
+    print 'start calc mean auc'
+    auc_weight_list = []
+    auc_list = []
+    total = 0
+    for name, group in test_jun_new.groupby(test_jun_new[2]):
+        if group[31].unique().shape[0] != 1:
+            aucvalue = roc_auc_score(group[31].values,group[100].values, average=None) #列31为真实在15天内消费的结果
+            auc_weight_list.append(  aucvalue*group.shape[0] )
+            auc_list.append(aucvalue)
+            total = total + group.shape[0]
+    s = pd.Series(auc_list)
+    print 'Direct Mean auc is: ',s.mean()
+
+onlycalc(test_jun_new)
+#return test_jun_new, auc_weight_list, auc_list, total
+"""
