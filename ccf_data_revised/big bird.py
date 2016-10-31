@@ -305,7 +305,7 @@ print 'A result generated.'
 
 #算6月平均auc
 #v1.5尝试 先把X_nojun的userid统计出来放在uid_nojun这个list中
-#uid_nojun = X_nojun[0].unique()
+uid_nojun = X_nojun[0].unique()
 mid_nojun = X_nojun[1].unique()
 #然后下面算auc的时候，只统计uid属于这个列表的
 def calcAucJun():
@@ -326,8 +326,9 @@ def calcAucJun():
     test_jun_new = pd.concat([test_jun, y_predict], axis=1) #把预测出来的6月结果，合并到6月的完整表的最后一列，方便下面的groupby和计算
     
     #v1.5的尝试，在这里增加了一句，只取uid属于上面uid_nojun的来看
-    #test_jun_new = test_jun_new[test_jun_new[0].isin(uid_nojun)]
-    #test_jun_new = test_jun_new[test_jun_new[1].isin(uid_nojun)]
+    #v3.15尝试同时限制这两者，让碧雨把历史上的几个版本跑一遍，看看趋势。
+    test_jun_new = test_jun_new[test_jun_new[0].isin(uid_nojun)]
+    test_jun_new = test_jun_new[test_jun_new[1].isin(uid_nojun)]
     print 'start calc mean auc'
     auc_weight_list = []
     auc_list = []
@@ -343,7 +344,7 @@ def calcAucJun():
 aucs = []
 aucs_w = []
 total = 1
-test_jun_new, aucs_w, aucs, total = calcAucJun()
+#test_jun_new, aucs_w, aucs, total = calcAucJun()
 s_w = pd.Series(aucs_w)
 s = pd.Series(aucs)
 print 'Weighted Mean auc is : ',s_w.sum()/total
