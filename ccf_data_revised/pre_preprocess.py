@@ -504,7 +504,11 @@ test7.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读
 test14 = sortcols(test14)
 test7 = sortcols(test7)
 
-test15 = pd.concat([test14.drop([14,17,23,24,25],axis=1),test7[[14,17,23,24,25]]],axis=1)
-test15.to_csv("test15.csv",index=False)
+#test15 = pd.concat([test14.drop([14,17,23,24,25],axis=1),test7[[14,17,23,24,25]]],axis=1)
+#test15.to_csv("test15.csv",index=False)
 
-
+#真是逼急眼了没辙了。
+df16 = pd.concat([df7, df14[[18,19,21,22,26,27,28,29]]],axis=1)
+df16.to_csv("offline16.csv",index=False)
+test16 = pd.concat([test7, test14[[18,19,21,22,26,27,28,29]]],axis=1)
+test16.to_csv("test16.csv",index=False)
