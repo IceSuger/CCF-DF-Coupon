@@ -221,13 +221,13 @@ params = {
         "eval_metric": "auc",
         "eta": 0.1,
         "max_depth": 6,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
+        "subsample": 1,
+        "colsample_bytree": 1,
         "silent": 0,
         "nthread":4,
         "seed": 27,
     }
-num_boost_round = 3
+num_boost_round = 1
 #features = features.values
 target_train = target_train.values
 dtrain = xgb.DMatrix(features,label = target_train)
@@ -237,11 +237,23 @@ print 'xgb train ok'
 
 #下面对训练集跑predict，得到“新特征”
 X_leaf0 = pd.DataFrame(gbm.predict(xgb.DMatrix(features), pred_leaf=True))
+"""
+#下面对X做一个scale，以便接下来和“新特征”合并，并塞进LR
+features = features.fillna(0)
+scaler = MinMaxScaler()
+scaler.fit(features)
+features = pd.DataFrame( scaler.transform(features) )
+print 'scale ok'
+#合并新特征和标准化后的原始特征
+X_leaf0 = pd.concat([X_leaf00,features],axis=1)
+print 'concat ok', X_leaf0.shape
+"""
 #下面对新特征哑编码
-enc = OneHotEncoder()
+enc = OneHotEncoder(categorical_features = np.array(range(num_boost_round)))
 enc.fit(X_leaf0)
 X_leaf = enc.transform(X_leaf0)
 print 'onehot ok', X_leaf.shape
+
 #送进LR训练
 lr = LogisticRegression(n_jobs=4)
 lr.fit(X_leaf, y)
@@ -257,8 +269,17 @@ def giveResultOnTestset_XGBLR():
     print 'test read in ok'
     #选择特征列
     features_test = chooseFeatures(df_test) #.values
-    #XGBOOST
+    
+    #XGBOOST得到新特征
     test_leaf = pd.DataFrame( gbm.predict(xgb.DMatrix(features_test), pred_leaf=True) )
+    """    
+    #标准化原始特征
+    features_test = features_test.fillna(0)
+    features_test = pd.DataFrame( scaler.transform(features_test) )
+    #合并新特征和标准化后的原始特征
+    test_leaf = pd.concat([test_leaf,features_test],axis=1)
+    """
+    #哑编码    
     test_leaf = enc.transform(test_leaf)
     #LR
     target_test = lr.predict_proba(test_leaf)[:,1]
@@ -268,7 +289,7 @@ def giveResultOnTestset_XGBLR():
     #不想要科学计数法的结果
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v4_0 xgb+lr_xgb n3 rate0.8.csv",header=None,index=False)
+    df_res.to_csv("v4_2 xgb into lr_xgb n1 rate1.csv",header=None,index=False)
     return df_res
 
 df_res = giveResultOnTestset_XGBLR()
