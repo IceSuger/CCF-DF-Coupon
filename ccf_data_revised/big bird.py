@@ -113,7 +113,7 @@ def markTarget(df):
     df[31][( ((df[6].notnull()) & (df[2]>0) )& (df[7].astype('timedelta64[D]').fillna(200).astype('int')<16))] = 1
     return df
     
-
+"""
 df = readAsChunks_hashead("offline16.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float,'18':float,'19':float, '20':float,'21':float,'22':float, '15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float}).replace("null",np.nan)
 df.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 df[5] = pd.to_datetime(df[5])
@@ -138,7 +138,7 @@ def chooseFeatures(df):
     return df[[0,1,3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]]
     #v1.11的特征：
     #return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
-    
+
 #features01, features = chooseFeatures(df)
 features = chooseFeatures(df)
 target_train = df[11]
@@ -158,6 +158,7 @@ X_jun = chooseFeatures(test_jun)
 
 
 print features.shape
+"""
 
 """ 本来在这，移到前面试试看。结论是不能移到前面，不然的话，经过poly，那他妈的维数
 #把usrid，merchantid合并进features
@@ -170,7 +171,7 @@ Xrf = features.copy()
 rf_whole = RandomForestClassifier( max_depth = 10, min_samples_split=2, n_estimators = 100, random_state = 1, n_jobs=-1) 
 rf_whole.fit(Xrf,target_train)
 """
-Xrf = features.copy()
+
 """
 #哑编码 One-hot encode
 enc = OneHotEncoder(categorical_features = np.array([0,1,2,4,5,8]) ,handle_unknown ='ignore' )
@@ -204,7 +205,7 @@ print 'poly ok'
 
 print 'preprocess ok'
 
-
+"""
 #训练模型
 X = features
 y = target_train
@@ -221,13 +222,13 @@ params = {
         "eval_metric": "auc",
         "eta": 0.1,
         "max_depth": 6,
-        "subsample": 1,
-        "colsample_bytree": 1,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
         "silent": 0,
         "nthread":4,
         "seed": 27,
     }
-num_boost_round = 1
+num_boost_round = 100
 #features = features.values
 target_train = target_train.values
 dtrain = xgb.DMatrix(features,label = target_train)
@@ -237,6 +238,35 @@ print 'xgb train ok'
 
 #下面对训练集跑predict，得到“新特征”
 X_leaf0 = pd.DataFrame(gbm.predict(xgb.DMatrix(features), pred_leaf=True))
+"""
+
+
+
+"""
+df = readAsChunks_hashead("offline16.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float,'18':float,'19':float, '20':float,'21':float,'22':float, '15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float}).replace("null",np.nan)
+df.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
+df[5] = pd.to_datetime(df[5])
+df[6] = pd.to_datetime(df[6])
+df = markTarget(df)
+"""
+
+
+
+
+
+target_train = pd.read_csv("target_train.csv",header=None)[0]
+y = target_train
+#X_leaf0 = pd.DataFrame( pd.read_csv("X_leaf0.csv",header=None)[99] )
+X_leaf0 = pd.DataFrame( pd.read_csv("X_leaf0.csv",header=None) )
+
+
+
+
+
+
+
+
+
 """
 #下面对X做一个scale，以便接下来和“新特征”合并，并塞进LR
 features = features.fillna(0)
@@ -248,8 +278,11 @@ print 'scale ok'
 X_leaf0 = pd.concat([X_leaf00,features],axis=1)
 print 'concat ok', X_leaf0.shape
 """
+
+
+
 #下面对新特征哑编码
-enc = OneHotEncoder(categorical_features = np.array(range(num_boost_round)))
+enc = OneHotEncoder(categorical_features='all', sparse=True, dtype=np.int) #categorical_features = np.array(range(num_boost_round)))
 enc.fit(X_leaf0)
 X_leaf = enc.transform(X_leaf0)
 print 'onehot ok', X_leaf.shape
@@ -258,10 +291,25 @@ print 'onehot ok', X_leaf.shape
 lr = LogisticRegression(n_jobs=4)
 lr.fit(X_leaf, y)
 
+"""
+import cPickle as pickle
+#往硬盘写
+fn = 'lr.pkl'
+with open(fn, 'w') as f:                     # open file with write-mode
+    picklestring = pickle.dump(lr, f)   # serialize and save object
+
+#从硬盘读
+fn = 'lr.pkl'
+with open(fn, 'r') as f:
+    lr = pickle.load(f)   # read file and build object
+"""
+
 def giveResultOnTestset_XGBLR():
+    
      #读测试数据。这里是题目给的原始数据，读它是为了保证提交结果的前三列格式不出问题
     df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
     df_res = df_test[[0,2,5]]
+    """
     #读预处理过的测试集。
     df_test = readAsChunks_hashead("test16.csv",{'0':int, '1':int, '4':float, '8':float, '9':float,'10':float,  '17':float,'18':float,'19':float, '20':float,'21':float,'22':float,'15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float})
     df_test.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
@@ -273,12 +321,15 @@ def giveResultOnTestset_XGBLR():
     #XGBOOST得到新特征
     test_leaf = pd.DataFrame( gbm.predict(xgb.DMatrix(features_test), pred_leaf=True) )
     """    
+    """    
     #标准化原始特征
     features_test = features_test.fillna(0)
     features_test = pd.DataFrame( scaler.transform(features_test) )
     #合并新特征和标准化后的原始特征
     test_leaf = pd.concat([test_leaf,features_test],axis=1)
     """
+    #test_leaf = pd.DataFrame( pd.read_csv("test_leaf.csv",header=None)[99] )
+    test_leaf = pd.DataFrame( pd.read_csv("test_leaf.csv",header=None) )
     #哑编码    
     test_leaf = enc.transform(test_leaf)
     #LR
@@ -289,7 +340,7 @@ def giveResultOnTestset_XGBLR():
     #不想要科学计数法的结果
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v4_2 xgb into lr_xgb n1 rate1.csv",header=None,index=False)
+    df_res.to_csv("v4_4 xgb into lr_xgb n100 rate0.8_all 100 cols.csv",header=None,index=False)
     return df_res
 
 df_res = giveResultOnTestset_XGBLR()
