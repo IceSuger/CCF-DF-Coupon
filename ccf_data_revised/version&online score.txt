@@ -305,3 +305,9 @@ v3.15
 --------------
 v3.16
 尝试看看auc的不同计算方式到底有啥区别，即sklearn实现里的参数average。
+---------------
+v3.17
+用shuffle stratified split的方式，切分训练集，得到验证集。
+做十次，每次切十分之一作为验证集。
+然后在这种方式下，算平均auc。
+看看效果吧。统计结果见文件：some versions' localonline auc.txt。
