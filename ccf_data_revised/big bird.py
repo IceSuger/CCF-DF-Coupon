@@ -153,14 +153,22 @@ print 'A result generated.'
 #####
 
 def calcAuc(cid, y_pred, y_true): #cid: couponids
+    cid = pd.DataFrame( cid )
+    y_true = pd.DataFrame( y_true )
     conc = pd.concat([cid, y_pred, y_true], axis=1) #把预测出来的结果，合并到完整表的最后一列，方便下面的groupby和计算
     conc.columns = [2,100,31]
     auc_list = []
     for name, group in conc.groupby(conc[2]):
-        if group[31].unique().shape[0] != 1:
+        if name == 0:
+            print 'NO NO NO!'
+        elif group[31].unique().shape[0] != 1:
+            #print 'COUPON ID: ',name            
+            #print group
             aucvalue = roc_auc_score(y_true = group[31].values, y_score = group[100].values) #列31为真实在15天内消费的结果
             auc_list.append(aucvalue)
+            #print aucvalue
     s = pd.Series(auc_list)
+    #print s 
     print 'Direct Mean auc is: ',s.mean()
     return s.mean()
 
@@ -185,15 +193,16 @@ df[6] = pd.to_datetime(df[6])
 #打上分类标记
 df = markTarget(df)
 #准备好这几个东西
-X = chooseFeatures(df).copy()
-y = df[11].copy()
-couponids = df[2].copy()
-y_true = df[31].copy()
+X = chooseFeatures(df).copy().values
+y = df[11].copy().values
+couponids = df[2].copy().values
+y_true = df[31].copy().values
 
 #把df干掉，释放内存
 import gc
 del df
 gc.collect()
+print 'df deleted'
 
 #XGB初始化
 params = {
@@ -213,10 +222,15 @@ num_boost_round = 96
 
 #1. 做shuffle stratified split (如果效果不好，还可以考虑换成 stratified K fold)
 from sklearn.cross_validation import StratifiedShuffleSplit
-sss = StratifiedShuffleSplit(y, n_iter=10, test_size=0.1, random_state=0)
+from sklearn.cross_validation import StratifiedKFold
+from sklearn.cross_validation import KFold
+#sss = StratifiedShuffleSplit(y_true, n_iter=10, test_size=0.1, random_state=0)
+#sss = StratifiedKFold(y_true, n_folds=5)
+sss = KFold(y_true.shape[0], n_folds=30)
 #2. 开始循环
 times=0
 mean_auc = []
+print 'cycle begin'
 for train_index, test_index in sss:
     times += 1
     X_train, X_test = X[train_index], X[test_index]
@@ -224,7 +238,7 @@ for train_index, test_index in sss:
     cid = couponids[test_index]
     y_true_test = y_true[test_index]
     #训练XGB
-    dtrain = xgb.DMatrix(X_train, label = y_train.values)
+    dtrain = xgb.DMatrix(X_train, label = y_train)
     gbm = xgb.train(params, dtrain, num_boost_round, verbose_eval=True)
     print times, 'training ok'
     #预测
@@ -236,7 +250,7 @@ for train_index, test_index in sss:
     #垃圾回收，释放内存
     gc.collect()
 #算整个的平均平均AUC值，即伪CV的平均结果
-print 'Mean mean auc is ', mean_auc.mean()
+print 'Mean mean auc is ', pd.Series(mean_auc).mean()
 
 
 
