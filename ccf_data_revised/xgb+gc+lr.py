@@ -171,6 +171,7 @@ encs = []
 for i in range(num_boost_round):
     encs.append( fitEncoders(X_leaf0.iloc[:,i]) )
 encs = pd.Series(encs)
+print 'encoders fit ok'
 #释放点内存
 gc.collect()
 #每棵树的哑编码结果，都放在mids这个Series中

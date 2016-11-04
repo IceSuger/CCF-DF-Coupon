@@ -471,6 +471,9 @@ df_off = feature19(df_off)
 df_off = feature22(df_off)
 df_off.to_csv("offline12.csv",index=False)
 """
+
+
+"""
 def sortcols(df):
     cols = list(df)
     cols.sort()
@@ -484,6 +487,9 @@ df7 = readAsChunks_hashead("offline7.csv", {'0':int, '1':int, '4':float, '8':flo
 df7.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
 df14 = sortcols(df14)
 df7 = sortcols(df7)
+"""
+
+
 
 """
 df7 = df7[[0,1,2,3,4,17,8,9,10,14,12,13,11,20,15,16,23,24,25]]
@@ -491,7 +497,7 @@ df14 = df14[[0,1,2,3,4,17,8,9,10,14,12,13,11,20,15,16,23,24,25]]
 
 delta = df14 - df7
 """
-
+"""
 #老子是真没办法了，直接把好使的offline7里的某些字段拷过来放到新特征矩阵里吧，不重新处理了，他妈的没法再现了。
 #df15 = pd.concat([df14.drop([14,17,23,24,25],axis=1),df7[[14,17,23,24,25]]],axis=1)
 #df15.to_csv("offline15.csv",index=False)
@@ -512,3 +518,38 @@ df16 = pd.concat([df7, df14[[18,19,21,22,26,27,28,29]]],axis=1)
 df16.to_csv("offline16.csv",index=False)
 test16 = pd.concat([test7, test14[[18,19,21,22,26,27,28,29]]],axis=1)
 test16.to_csv("test16.csv",index=False)
+"""
+
+
+def genWeightOfTargetMark(df):
+    #正例权重设置
+    df[101] = 0
+    #消费了(，没用券的)，赋值0.6
+    df[101][ df[6].notnull()] = 0.6
+    #消费了，用券了，但超出15天了，赋值0.85
+    df[101][ ( (df[6].notnull()) & (df[2]>0) )] = 0.85
+    #处理一下日期，便于找出严格正例
+    df[5] = pd.to_datetime(df[5])
+    df[6] = pd.to_datetime(df[6])
+    df[7] = df[6]-df[5]
+    #严格的正例，赋值1
+    df[101][( ( (df[6].notnull()) & (df[2]>0) )& (df[7].astype('timedelta64[D]').fillna(200).astype('int')<16))] = 1
+    
+    #领券了，没消费的，赋值0.3
+    df[101][ ((df[6].isnull() )&(df[2]>0))] = 0.3
+
+    #df[11][ (df[6].notnull() & df[2].notnull() )& (df[7].astype('timedelta64[D]').fillna(200).astype('int')<16)] = 1
+    #df[11][ df[6].notnull() & df[2].notnull()] =1
+    #df[11][ ( (df[6].notnull()) & (df[2]>0) )] =1
+    return pd.DataFrame(df[101])
+
+
+df = readAsChunks_nohead("ccf_offline_stage1_train.csv", {0:int, 1:int}).replace("null",np.nan)
+sample_weight = genWeightOfTargetMark(df)
+
+
+
+
+
+
+
