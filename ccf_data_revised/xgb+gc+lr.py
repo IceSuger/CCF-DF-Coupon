@@ -89,8 +89,10 @@ def chooseFeatures(df):
     #v3.8的特征：    
     #return df[[0,1,3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]]
     #v1.11的特征：
-    return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
-
+    #return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
+    #v3.18的特征：    
+    return df[[3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]]
+    
 
 df = readAsChunks_hashead("offline16.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float,'18':float,'19':float, '20':float,'21':float,'22':float, '15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float}).replace("null",np.nan)
 df.rename(columns=lambda x:int(x), inplace=True) #因为读文件时直接读入了列名，但是是str类型，这里统一转换成int
@@ -114,14 +116,14 @@ params = {
         "booster" : "gbtree",
         "eval_metric": "auc",
         "eta": 0.05,
-        "max_depth": 5,
+        "max_depth": 9,
         "subsample": 0.8,
         "colsample_bytree": 0.8,
         "silent": 0,
         "nthread":4,
         "seed": 27,
     }
-num_boost_round = 96
+num_boost_round = 100
 #X = X.values
 y = y.values
 dtrain = xgb.DMatrix(X,label = y)
@@ -137,9 +139,49 @@ del df, X, params, dtrain
 gc.collect()
 
 #下面对新特征哑编码
-enc = OneHotEncoder(categorical_features='all', sparse=True, dtype=np.int) #categorical_features = np.array(range(num_boost_round)))
-enc.fit(X_leaf0)
-X_leaf = enc.transform(X_leaf0)
+#enc = OneHotEncoder(categorical_features='all', sparse=True, dtype=np.int) #categorical_features = np.array(range(num_boost_round)))
+#enc.fit(X_leaf0)
+#X_leaf = enc.transform(X_leaf0)
+
+#尝试分别对每列做onehot，然后再sparse.hstack，也许不会死机？
+
+def fitEncoders(col):
+    #print col.name
+    col = pd.DataFrame(col)
+    enc = OneHotEncoder(categorical_features='all', sparse=True, dtype=np.int)
+    enc.fit(col)
+    #encs.append(enc)
+    gc.collect()
+    return enc
+def sparsifyMid(col):
+    enc = encs[col.name]
+    col = pd.DataFrame(col)
+    #print col
+    #mid表示中间结果，每个mid代表一棵树的结果独热编码后
+    mid = enc.transform(col)
+    #print pd.DataFrame( mid.toarray() )
+    
+    #mids.append(mid)
+    gc.collect()
+    return mid
+#对X_leaf0做哑编码
+#encs = X_leaf0.apply((lambda x:fitEncoders(x)),axis=0) #这个要保留，为处理测试集用。
+#v4.9 这里改成手动for循环，避免死机
+encs = []
+for i in range(num_boost_round):
+    encs.append( fitEncoders(X_leaf0.iloc[:,i]) )
+encs = pd.Series(encs)
+#释放点内存
+gc.collect()
+#每棵树的哑编码结果，都放在mids这个Series中
+mids = X_leaf0.apply((lambda x:sparsifyMid(x)),axis=0)
+#释放点内存
+del X_leaf0
+gc.collect()
+
+from scipy import sparse
+X_leaf = sparse.hstack(list(mids))
+
 print 'onehot ok', X_leaf.shape
 
 #送进LR训练
@@ -147,10 +189,10 @@ lr = LogisticRegression(n_jobs=4)
 lr.fit(X_leaf, y)
 
 #释放内存
-del X_leaf
+del X_leaf, mids
 gc.collect()
 
-
+print 'LR train ok'
 def giveResultOnTestset_XGBLR():
      #读测试数据。这里是题目给的原始数据，读它是为了保证提交结果的前三列格式不出问题
     df_test = readAsChunks_nohead("ccf_offline_stage1_test_revised.csv",{0:int, 1:int}).replace("null",np.nan)
@@ -179,7 +221,11 @@ def giveResultOnTestset_XGBLR():
     #test_leaf = pd.DataFrame( pd.read_csv("test_leaf.csv",header=None)[99] )
     #test_leaf = pd.DataFrame( pd.read_csv("test_leaf.csv",header=None) )
     #哑编码    
-    test_leaf = enc.transform(test_leaf)
+    #test_leaf = enc.transform(test_leaf)
+    
+    #v4.8新哑编码
+    mids = test_leaf.apply((lambda x:sparsifyMid(x)),axis=0)
+    test_leaf = sparse.hstack(list(mids))
     #LR
     target_test = lr.predict_proba(test_leaf)[:,1]
     
@@ -188,7 +234,7 @@ def giveResultOnTestset_XGBLR():
     #不想要科学计数法的结果
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v4_6 xgb into lr_all 96 cols.csv",header=None,index=False)
+    df_res.to_csv("v4_9 xgb into lr_depth9.csv",header=None,index=False)
     return df_res
 
 df_res = giveResultOnTestset_XGBLR()
