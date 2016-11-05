@@ -9,6 +9,7 @@ import pandas as pd
 import xgboost as xgb
 from sklearn.cross_validation import StratifiedKFold
 from xgboost.sklearn import XGBClassifier
+import gc
 
 #实现Stacking Ensemble
 class Ensemble(object):
@@ -30,6 +31,7 @@ class Ensemble(object):
         S_test = np.zeros((T.shape[0], len(self.base_models)))
 
         for i, clf in enumerate(self.base_models):
+            gc.collect()
             S_test_i = np.zeros((T.shape[0], len(folds)))
 
             for j, (train_idx, test_idx) in enumerate(folds):
