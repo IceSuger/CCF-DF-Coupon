@@ -238,8 +238,7 @@ def giveResultOnTestset():
     df_res.to_csv("v3_14 using offline16 & test16 _with18 19 21 22 26 27 28 29_n 100_depth6.csv",header=None,index=False)
     #print df_res[4].value_counts()
     return df_res
-<<<<<<< HEAD
-<<<<<<< HEAD
+
 """
 #df_res = giveResultOnTestset()
 print 'A result generated.'
