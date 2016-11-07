@@ -31,10 +31,12 @@ class Ensemble(object):
         S_test = np.zeros((T.shape[0], len(self.base_models)))
 
         for i, clf in enumerate(self.base_models):
+            print i, clf
             gc.collect()
             S_test_i = np.zeros((T.shape[0], len(folds)))
 
             for j, (train_idx, test_idx) in enumerate(folds):
+                print j,'fold'
                 X_train = X[train_idx]
                 y_train = y[train_idx]
                 W_train = sample_weight[train_idx]
@@ -42,13 +44,18 @@ class Ensemble(object):
                 # y_holdout = y[test_idx]
                 if isinstance(clf, XGBClassifier):
                     clf.fit(X_train, y_train, eval_metric = 'auc', sample_weight = W_train)
+                    y_pred = clf.predict_proba(X_holdout)[:,1]
+                    S_train[test_idx, i] = y_pred
+                    S_test_i[:, j] = clf.predict_proba(T)[:,1]
                 else:
-                    clf.fit(X_train, y_train, sample_weight = W_train)
-                y_pred = clf.predict_proba(X_holdout)[:,1]
-                S_train[test_idx, i] = y_pred
-                S_test_i[:, j] = clf.predict_proba(T)[:,1]
+                    clf.fit(np.nan_to_num(X_train), np.nan_to_num(y_train), sample_weight = W_train)
+                    y_pred = clf.predict_proba(np.nan_to_num(X_holdout))[:,1]
+                    S_train[test_idx, i] = y_pred
+                    S_test_i[:, j] = clf.predict_proba(np.nan_to_num(T))[:,1]
 
             S_test[:, i] = S_test_i.mean(1)
+        if(self.stacker == None):
+            return S_test
         if isinstance(self.stacker, XGBClassifier):
             self.stacker.fit(S_train, y, eval_metric = 'auc')
         else:

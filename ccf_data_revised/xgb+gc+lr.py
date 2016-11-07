@@ -56,7 +56,9 @@ def chooseFeatures(df):
     #v1.11的特征：
     #return df[[0,1,3,4,8,9,10,12,14,15,16,17,20,23,24,25]]
     #v3.18的特征：    
-    return df[[3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]]
+    #return df[[3,4,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]]
+    #v4.的特征：    
+    return df[[8,9,10,12,14,15,16,17,19,20,22,23,24,25,26,27,28,29]]
     
 
 df = readAsChunks_hashead("offline16.csv", {'0':int, '1':int, '4':float, '8':float, '9':float,'10':float, '17':float,'18':float,'19':float, '20':float,'21':float,'22':float, '15':int, '16':int, '23':int, '24':float, '25':float, '26':float, '27':float, '28':float, '29':float}).replace("null",np.nan)
@@ -81,14 +83,14 @@ params = {
         "booster" : "gbtree",
         "eval_metric": "auc",
         "eta": 0.05,
-        "max_depth": 9,
+        "max_depth": 6,
         "subsample": 0.8,
         "colsample_bytree": 0.8,
         "silent": 0,
         "nthread":4,
         "seed": 27,
     }
-num_boost_round = 100
+num_boost_round = 90
 #X = X.values
 y = y.values
 dtrain = xgb.DMatrix(X,label = y)
@@ -200,7 +202,7 @@ def giveResultOnTestset_XGBLR():
     #不想要科学计数法的结果
     df_res[4] = df_res[4].apply(lambda x: '%.15f' % x)
 
-    df_res.to_csv("v4_9 xgb into lr_depth9.csv",header=None,index=False)
+    df_res.to_csv("v4_20.csv",header=None,index=False)
     return df_res
 
 df_res = giveResultOnTestset_XGBLR()
